@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wedstrijdformulier Biljart</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#fff; --ink:#1b1f24; --muted:#5f6b7a; --line:#d5dae1;
+  --accent:#0b6e4f; --accent-ink:#fff; --home:#e8f3ee; --away:#eaf0f8; --warn:#b54708; --hit:#fff4c2;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181c; --panel:#1f2328; --ink:#e7eaee; --muted:#9aa4b1; --line:#353b43;
+    --accent:#3fb489; --accent-ink:#0d1a14; --home:#1d2c26; --away:#1d2532; --warn:#f0a35e; --hit:#4a4118;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+header.bar{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+header.bar h1{font-size:16px;margin:0 12px 0 0;white-space:nowrap}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs button{border:1px solid var(--line);background:transparent;border-radius:6px;padding:6px 12px;cursor:pointer}
+nav.tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:3px 8px;font-size:13px}
+main{max-width:1200px;margin:0 auto;padding:16px}
+section.view{display:none}
+section.view.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+label.f input,label.f select{font-size:15px;color:var(--ink);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.sides{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+@media (max-width:900px){.sides{grid-template-columns:1fr}}
+.side.home{background:var(--home)} .side.away{background:var(--away)}
+.side h2{margin:0 0 8px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.side h2 select{flex:1;min-width:160px;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table.entry{width:100%;border-collapse:collapse}
+table.entry th{font-size:11px;color:var(--muted);text-align:left;font-weight:600;padding:2px}
+table.entry td{padding:2px}
+table.entry input,table.entry select{width:100%;padding:5px 4px;border:1px solid var(--line);border-radius:4px;background:var(--panel);min-width:0}
+table.entry td.nr{width:22px;color:var(--muted);text-align:center}
+table.entry .num{width:52px;text-align:right}
+table.entry td.pts{width:36px;text-align:center;font-weight:700;font-size:16px}
+.ac{position:relative}
+.ac-list{display:none;position:absolute;left:0;top:100%;z-index:30;min-width:100%;width:max-content;max-width:min(340px,86vw);max-height:280px;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18);margin-top:2px}
+.ac.open .ac-list{display:block}
+.ac-item{padding:6px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.ac-item small{color:var(--muted);white-space:nowrap}
+.ac-item.act,.ac-item:hover{background:var(--bg)}
+.ac-item.used{opacity:.5}
+.ac-item mark{background:var(--hit);color:inherit;border-radius:2px}
+.ac-sep{padding:4px 10px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);background:var(--bg)}
+.ac-empty{padding:8px 10px;color:var(--muted);font-size:13px}
+.ac-toggle{border-top:1px solid var(--line);color:var(--accent);font-weight:600;font-size:13px}
+table.entry tfoot td{font-weight:700;padding-top:6px}
+input[readonly]{opacity:.75}
+.hint{font-size:12px;color:var(--muted)}
+.sig{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.sig canvas{width:100%;height:90px;background:#fff;border:1px dashed var(--line);border-radius:6px;touch-action:none}
+.sig .row{display:flex;gap:6px;align-items:center}
+.sig .row input{flex:1;padding:5px;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+/* scoreblad */
+.sb-head{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sb-player{padding:10px;border-radius:8px}
+.sb-player .nm{font-weight:700;font-size:17px}
+.sb-player .big{font-size:34px;font-weight:800;line-height:1.1}
+.bar-out{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar-in{height:100%;background:var(--accent)}
+table.sb{width:100%;border-collapse:collapse;margin-top:10px}
+table.sb th,table.sb td{border-bottom:1px solid var(--line);padding:3px;text-align:center}
+table.sb input{width:100%;max-width:90px;text-align:center;padding:8px 4px;font-size:18px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table.sb td.tot{font-weight:700;font-variant-numeric:tabular-nums}
+table.sb td.reached{background:var(--hit)}
+.pills{display:flex;gap:4px;flex-wrap:wrap}
+.pills button{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:4px 10px;cursor:pointer}
+.pills button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+/* spelers / archief */
+.tbl-wrap{overflow:auto;max-height:65vh}
+table.list{width:100%;border-collapse:collapse;font-size:14px}
+table.list th{position:sticky;top:0;background:var(--panel);text-align:left;border-bottom:2px solid var(--line);padding:4px}
+table.list td{border-bottom:1px solid var(--line);padding:2px 4px}
+table.list input{width:100%;border:1px solid transparent;background:transparent;padding:3px}
+table.list input:focus{border-color:var(--line);background:var(--panel)}
+.upd{background:#fff4c2;color:#1b1f24;border:1px solid #e0c35a;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.upd[hidden]{display:none}
+.upd .msg{flex:1;min-width:220px}
+.upd details{flex-basis:100%;font-size:13px;max-height:220px;overflow:auto}
+.upd details li{margin:1px 0}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw}
+#toast.on{opacity:1}
+.menu{position:relative}
+.menu .pop{display:none;position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;min-width:250px;z-index:10;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+.menu.open .pop{display:block}
+.menu .pop button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px;border-radius:4px;cursor:pointer}
+.menu .pop button:hover{background:var(--bg)}
+
+/* ===== Afdrukbare A4-sheets (ook gebruikt voor PDF) — opmaak volgens het originele Excel-formulier ===== */
+#printRoot{display:none}
+.page{-webkit-print-color-adjust:exact;print-color-adjust:exact;width:194mm;height:280mm;overflow:hidden;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;justify-content:space-between}
+/* Wedstrijdformulier */
+.fcopy{border:1px solid #000;height:118mm;display:flex;flex-direction:column}
+.fbar{background:#000;color:#fff;font-weight:700;font-size:14pt;height:11mm;display:flex;align-items:center;justify-content:space-between;padding:0 3mm 0 7mm;flex:none}
+.fsides{display:grid;grid-template-columns:1fr 7mm 1fr;flex:1}
+.fside{display:flex;flex-direction:column;font-size:9pt}
+.fside .lbl{height:7mm;display:flex;align-items:center;padding-left:8mm}
+.fside .lbl b{margin-left:2mm}
+.fside table{width:100%;border-collapse:collapse;table-layout:fixed}
+.fside th,.fside td{height:7mm;padding:0 1mm;font-size:9.5pt;overflow:hidden;white-space:nowrap}
+.fside th{font-weight:400;font-size:8pt;text-align:left;border:1px solid #000}
+.fside tbody td{border:1px solid #000}
+.fside td.r{text-align:right}
+.fside td.c{text-align:center}
+.fside tr.wp td{border:0}
+.fside tr.wp td.box{border:1px solid #000;border-top:0;text-align:center;font-weight:700}
+.fside tr.wp td.t{text-align:right;padding-right:2mm}
+.fside .fsig{font-size:7.5pt;padding-left:8mm;margin-top:7mm;position:relative;height:5mm;display:flex;align-items:flex-end}
+.fside .fsig .dots{display:inline-block;width:50%;border-bottom:1px dotted #000;height:3mm;position:relative;margin-left:1mm}
+.fside .fsig img{position:absolute;left:2mm;bottom:0;height:10mm;max-width:52mm;object-fit:contain;object-position:left bottom}
+.fside .fsig small{margin-left:2mm;font-size:7pt;white-space:nowrap}
+.fside .dat{font-size:9pt;padding-left:8mm;margin-top:4mm}
+/* Scoreblad: 4 partijen per A4, per blok thuis- en uitspeler naast elkaar */
+.sbgrid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;align-content:space-between;column-gap:6mm;height:100%}
+.sbk{width:100%;height:max-content;border-collapse:collapse;table-layout:fixed;border:1px solid #000;font-size:8pt}
+.sbk td{border-left:1px solid #000;border-right:1px solid #000;border-bottom:1px solid #999;padding:0 .8mm;height:5.8mm;text-align:center;overflow:hidden;white-space:nowrap}
+.sbk tr.top td{height:9mm;border-bottom:1px solid #000}
+.sbk tr.top td.w{font-weight:700;text-align:left}
+.sbk tr.top td.tm{font-weight:700;font-size:9pt}
+.sbk tr.ap td{height:8mm;border-bottom:1px solid #000;font-size:9pt}
+.sbk tr.ap td.l{text-align:left}
+.sbk tr.nh td{height:3.5mm;font-size:6.5pt;border-bottom:1px solid #000}
+.sbk tr.nv td{height:5.5mm;border-bottom:1px solid #000;font-weight:700;font-size:8.5pt}
+.sbk tr.bh td{height:5.5mm;font-size:6pt;border-bottom:1px solid #000;padding:0}
+.sbk td.b{font-weight:700;text-align:left;font-size:7.5pt}
+.sbk td.g{background:#d0d0d0;border-top:2px solid #777}
+.sbk tr.ft td{border-bottom:1px solid #000;text-align:left;font-size:9pt}
+.sbk tr.ft td.v{text-align:center;font-weight:700}
+.sbk .thick{border-right:1px solid #000}
+
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  body{background:#fff}
+  header.bar,main,#toast{display:none!important}
+  #printRoot{display:block}
+  /* meegroeien met het bedrukbare gebied, zodat ook bij bredere printer-/browsermarges niets wegvalt */
+  .page{width:auto;height:auto;display:block;page-break-after:always;break-after:page}
+  .fcopy + .fcopy{margin-top:14mm}
+  .sbgrid{height:auto;row-gap:8mm}
+  .page:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>🎱 Wedstrijdformulier</h1>
+  <nav class="tabs" id="tabs">
+    <button data-v="form" class="on">Formulier</button>
+    <button data-v="score">Live scoreblad</button>
+    <button data-v="players">Spelers</button>
+    <button data-v="archive">Archief</button>
+  </nav>
+  <div class="actions">
+    <button class="btn" id="bNew" title="Leeg formulier">Nieuw</button>
+    <button class="btn" id="bSave" title="Opslaan in archief">Opslaan</button>
+    <div class="menu" id="mPrint">
+      <button class="btn primary" id="bPrintMenu">Afdrukken / export ▾</button>
+      <div class="pop">
+        <button data-a="print2">🖨️ Afdrukken – 2 exemplaren op 1 A4</button>
+        <button data-a="print2p">🖨️ Afdrukken – 2 exemplaren, elk op eigen A4</button>
+        <button data-a="printSb">🖨️ Scoreblad afdrukken (8 partijen)</button>
+        <button data-a="pdf">📄 Exporteren als PDF</button>
+        <button data-a="xlsx">📊 Exporteren naar Excel (.xlsx)</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="upd" id="upd" hidden></div>
+<!-- ================= FORMULIER ================= -->
+<section class="view on" id="v-form">
+  <div class="card grid">
+    <label class="f">Organisatie<input id="fOrg"></label>
+    <label class="f">Seizoen<input id="fSeason" placeholder="2026-2027"></label>
+    <label class="f">Datum<input id="fDate" type="date"></label>
+    <label class="f">Speelronde / week<input id="fRound" placeholder="bijv. 12"></label>
+    <label class="f">Locatie<input id="fLoc" placeholder="optioneel"></label>
+  </div>
+  <div class="sides">
+    <div class="card side home" id="sideHome"></div>
+    <div class="card side away" id="sideAway"></div>
+  </div>
+  <p class="hint">Punten per partij (thuisspeler rij n tegen uitspeler rij n): verschil = gemaakt − te maken.
+    Hoogste verschil <b>en</b> doel gehaald = 3 · gelijk verschil + doel gehaald = 2 · hoogste verschil zonder doel = 2 ·
+    gelijk verschil zonder doel = 1 · verloren maar doel gehaald = 1 · anders 0.</p>
+</section>
+
+<!-- ================= LIVE SCOREBLAD ================= -->
+<section class="view" id="v-score">
+  <div class="card">
+    <div class="pills" id="sbPills"></div>
+  </div>
+  <div class="card" id="sbBody"></div>
+</section>
+
+<!-- ================= SPELERS ================= -->
+<section class="view" id="v-players">
+  <div class="card">
+    <p style="display:flex;gap:6px;flex-wrap:wrap;margin:0">
+      <button class="btn primary" id="pRefresh">⟳ Moyennes controleren</button>
+      <label class="btn">📥 Importeer .xlsx / .csv<input type="file" id="pFile" accept=".xlsx,.xls,.csv" hidden></label>
+      <button class="btn" id="pExport">📤 Exporteer naar Excel</button>
+      <button class="btn" id="pAdd">+ Speler toevoegen</button>
+      <button class="btn" id="pReset">Ingebouwde lijst herstellen</button>
+    </p>
+    <p class="hint" id="pInfo"></p>
+    <p class="hint">De spelers komen van biljartpoint.nl, met teamnummers (bijv. De Schalm 1 t/m 4). Elke nacht worden de moyennes
+      gecontroleerd; zijn ze gewijzigd, dan verschijnt bovenaan een melding met de knop <b>Bijwerken</b>.
+      Werk je met het bestand op je eigen pc: start <code>spelers_ophalen.py</code> en importeer <code>Spelers_biljartpoint.xlsx</code>.</p>
+  </div>
+  <div class="card">
+    <div class="grid" style="margin-bottom:8px">
+      <label class="f">Zoeken<input id="pSearch" placeholder="naam of bondsnummer"></label>
+      <label class="f">Team<select id="pTeam"></select></label>
+    </div>
+    <div class="tbl-wrap"><table class="list" id="pTable"></table></div>
+  </div>
+</section>
+
+<!-- ================= ARCHIEF ================= -->
+<section class="view" id="v-archive">
+  <div class="card">
+    <p style="display:flex;gap:6px;flex-wrap:wrap;margin:0">
+      <button class="btn" id="aExport">Archief exporteren (.json)</button>
+      <label class="btn">Archief importeren<input type="file" id="aFile" accept=".json" hidden></label>
+    </p>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="list" id="aTable"></table></div></div>
+</section>
+</main>
+
+<div id="printRoot"></div>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   Wedstrijdformulier Generator – biljart (BGE)
+   Alles draait lokaal in de browser; gegevens staan in localStorage.
+   ===================================================================== */
+// Online spelerslijst naast de app (GitHub Pages); wordt elke nacht bijgewerkt door .github/workflows/moyennes.yml
+const ONLINE_URL = 'spelers.json';
+const ONLINE_SOURCE = 'Online lijst (biljartpoint)';
+const DEFAULT_ORG = 'BILJARTFEDERATIE GEMEENTE EMMEN';
+const ROWS = 8;
+// Momentopname van biljartpoint.nl (9830 Klasse A + 9831 Klasse B, 21-09-2026). Teamindeling op basis van
+// gespeelde partijen: vast = meeste partijen voor dat team, reserve = ook voor dat team ingevallen,
+// '<club> (geen team)' = nog niet gespeeld. [Teamnaam, Bondsnr, Naam, Temaken, Moy, Reserve(0/1)] – verversen met spelers_ophalen.py
+const BUILTIN_VERSION = 'biljartpoint-partijen-2026-09-21';
+const BUILTIN_PLAYERS = [["Anholt 1",10042,"Ruud Robben",59,2.37,0],["Anholt 1",10014,"Jan Slagter",47,1.872,0],["Anholt 1",10006,"Jos Hemel",68,2.736,0],["Anholt 1",10018,"Klaas van der Veen",41,1.628,0],["Anholt 1",10012,"Wijnand Schepers",48,1.932,0],["Anholt 1",10323,"Henk Keizer",96,3.857,0],["Anholt 1",10324,"Fred Evers",37,1.48,0],["Anholt 1",10019,"Egbert Veenker",106,4.232,0],["Anholt 1",10008,"Tinus Hogenberg",43,1.718,0],["Anholt 1",10010,"Willy van Os",37,1.47,0],["Anholt 1",10011,"Eddy Schepers",47,1.86,0],["Anholt 1",10015,"Martin Stoppels",38,1.528,1],["Anholt 2",10020,"Dirk de Vries",27,1.095,0],["Anholt 2",10302,"Fred Huider",30,1.218,0],["Anholt 2",10015,"Martin Stoppels",38,1.528,0],["Anholt 2",10022,"Piet Winter",24,0.943,0],["Anholt 2",10003,"Roelof Boekholt",32,1.28,0],["Anholt 2",10009,"Egbert Koops",25,0.993,0],["Anholt 2",10002,"Evert Aardema",23,0.9,0],["Anholt 2",10004,"Wobbe Bosma",15,0.604,0],["Anholt 2",10021,"Gerard Wessels",32,1.29,0],["Anholt 2",10023,"Stef Wittendorp",25,1.005,0],["Anholt 2",10349,"Arie van Vliet",20,0.78,0],["Anholt 2",10007,"Homme Hof",15,0.504,0],["Anholt 2",10017,"Wim Timmer",26,1.04,0],["Bintholt (geen team)",10328,"Chiel van der Stelt",25,1,1],["Bintholt (geen team)",10341,"Jan Borgman",44,1.76,1],["Bintholt (geen team)",10373,"Jan Schepers",16,0.64,1],["Bintholt (geen team)",10367,"Jan Sijbring",30,1.2,1],["Bintholt (geen team)",10342,"Johan Cramer",35,1.4,1],["Bintholt (geen team)",10304,"Koert Bruinsma",42,1.68,1],["Bintholt (geen team)",10272,"Lukas Emmens",17,0.681,1],["Bintholt 1",10348,"Bertie Roemahlewang",49,1.953,0],["Bintholt 1",10040,"Wobbie Duursma",59,2.344,0],["Bintholt 1",10046,"Etienne van Vugt",31,1.243,0],["Bintholt 1",10045,"Jan Struik",20,0.816,0],["Bintholt 1",10305,"Bertus de Graaf",30,1.201,0],["Bintholt 1",10043,"Willie Schoenmaker",25,1.004,0],["Bintholt 1",10339,"Mans Schepers",19,0.76,0],["Bintholt 1",10358,"Jan Peters",15,0.44,0],["Bintholt 1",10343,"Sjaak Hanff",37,1.48,0],["Bintholt 1",10294,"Gerhard Valke",20,0.8,1],["Brinkenhoes 1",10054,"Henk de Jonge",34,1.373,0],["Brinkenhoes 1",10057,"Herman Kuhl",79,3.169,0],["Brinkenhoes 1",10049,"Piet Deen",44,1.744,0],["Brinkenhoes 1",10056,"Aldert Korthuis",34,1.353,0],["Brinkenhoes 1",10064,"Jan Remerie",30,1.183,0],["Brinkenhoes 1",10052,"Wim Gozefoort",44,1.774,0],["Brinkenhoes 1",10320,"Albert van Oenen",21,0.853,1],["Brinkenhoes 1",10070,"Egbert Weidijk",29,1.147,1],["Brinkenhoes 1",10048,"Wil ter Bruggen",45,1.79,1],["Brinkenhoes 2",10063,"Bertus Nijland",36,1.426,0],["Brinkenhoes 2",10060,"Rudie Masselink",28,1.122,0],["Brinkenhoes 2",10066,"Roef Schoonbeek",42,1.661,0],["Brinkenhoes 2",10068,"Hennie in `t Veld",31,1.246,0],["Brinkenhoes 2",10048,"Wil ter Bruggen",45,1.79,0],["Brinkenhoes 2",10053,"Hilko Hidding",41,1.644,0],["Brinkenhoes 2",10062,"Geert Nijhof",28,1.133,0],["Brinkenhoes 2",10070,"Egbert Weidijk",29,1.147,1],["Brinkenhoes 3",10070,"Egbert Weidijk",29,1.147,0],["Brinkenhoes 3",10295,"Harm Muskee",21,0.84,0],["Brinkenhoes 3",10055,"Hans Kiers",23,0.916,0],["Brinkenhoes 3",10071,"Luuk Welink",17,0.661,0],["Brinkenhoes 3",10050,"Wim van Eldik",23,0.926,0],["Brinkenhoes 3",10059,"Jaap de Lange",27,1.068,0],["Brinkenhoes 3",10058,"Klaas Kuipers",15,0.373,0],["Brinkenhoes 3",10047,"Gerard Braam",23,0.916,0],["Brinkenhoes 3",10280,"Fokke Gebert",15,0.58,0],["Brinkenhoes 3",10320,"Albert van Oenen",21,0.853,0],["Brinkenhoes 3",10368,"Flip Lubbers",15,0.5733,0],["Brinkenhoes 3",10278,"John de Kok",15,0.615,0],["Brinkenhoes 3",10060,"Rudie Masselink",28,1.122,1],["Brinkenhoes 3",10068,"Hennie in `t Veld",31,1.246,1],["Brinkenhoes 3",10064,"Jan Remerie",30,1.183,1],["Brinkenhoes 3",10054,"Henk de Jonge",34,1.373,1],["Brinkenhoes 3",10066,"Roef Schoonbeek",42,1.661,1],["De Anloop 1",10033,"Jan Pol",32,1.285,0],["De Anloop 1",10037,"Willem Scholten",32,1.283,0],["De Anloop 1",10030,"Ton Haagen",30,1.181,0],["De Anloop 1",10286,"Arno Grevink",58,2.323,0],["De Anloop 1",10329,"Jan Sanders",17,0.672,0],["De Anloop 1",10034,"Jacobus Pol",24,0.96,0],["De Anloop 1",10285,"Giel Klaver",35,1.4,0],["De Anloop 1",10311,"Bert Jager de",43,1.704,0],["De Anloop 1",10027,"Jan Eleveld",25,1.012,1],["De Anloop 1",10294,"Gerhard Valke",20,0.8,1],["De Anloop 2",10307,"Andre Tiepel",26,1.032,0],["De Anloop 2",10025,"Rieks Botter",24,0.97,0],["De Anloop 2",10029,"Herman Gankema",29,1.152,0],["De Anloop 2",10331,"Jantinus Reinders",37,1.476,0],["De Anloop 2",10346,"Johan Harmes",18,0.72,0],["De Anloop 2",10036,"Geert Schenkel",21,0.84,0],["De Anloop 2",10028,"Johan Feijen",15,0.505,0],["De Anloop 2",10038,"Theo Sprangh",19,0.76,0],["De Anloop 2",10027,"Jan Eleveld",25,1.012,0],["De Anloop 2",10031,"Joop Kleis",15,0.593,0],["De Anloop 2",10032,"Tinus Kuipers",15,0.293,0],["De Anloop 2",10294,"Gerhard Valke",20,0.8,0],["De Anloop 2",10033,"Jan Pol",32,1.285,1],["De Anloop 2",10030,"Ton Haagen",30,1.181,1],["De Anloop 2",10285,"Giel Klaver",35,1.4,1],["De Anloop 2",10037,"Willem Scholten",32,1.283,1],["De Molen (geen team)",10087,"Be Middelbos",28,1.126,1],["De Molen (geen team)",10091,"Bennie Schnoing",21,0.83,1],["De Molen (geen team)",10082,"Gritus de Jonge",15,0.608,1],["De Molen (geen team)",10283,"Jan Jonkers",15,0.59,1],["De Molen 1",10075,"Bart Bos",60,2.393,0],["De Molen 1",10237,"Sybrand Drenth",37,1.464,0],["De Molen 1",10086,"Jans Lippold",29,1.172,0],["De Molen 1",10081,"Piet Hölscher",33,1.332,0],["De Molen 1",10073,"Herman Bernsen",35,1.389,0],["De Molen 1",10074,"Leo Binnemars",27,1.065,0],["De Molen 1",10287,"Gerrit Huigen",26,1.04,1],["De Molen 1",10357,"Richard Fijen",20,0.8,1],["De Molen 1",10297,"Jaap Super",17,0.695,1],["De Molen 1",10078,"Lambert de Groot",18,0.713,1],["De Molen 2",10076,"Rieks Engels",28,1.103,0],["De Molen 2",10084,"Bennie Kolker",47,1.872,0],["De Molen 2",10085,"Henk Levering",27,1.08,0],["De Molen 2",10072,"Henk Beekman",26,1.048,0],["De Molen 2",10288,"Jos Post",34,1.341,0],["De Molen 2",10088,"Willem Moorman",31,1.22,0],["De Molen 2",10357,"Richard Fijen",20,0.8,0],["De Molen 2",10287,"Gerrit Huigen",26,1.04,1],["De Molen 2",10297,"Jaap Super",17,0.695,1],["De Molen 2",10078,"Lambert de Groot",18,0.713,1],["De Molen 2",10237,"Sybrand Drenth",37,1.464,1],["De Molen 3",10079,"Anne de Groot",17,0.692,0],["De Molen 3",10078,"Lambert de Groot",18,0.713,0],["De Molen 3",10077,"Harrie Flap",15,0.603,0],["De Molen 3",10089,"Harrie Peters",17,0.694,0],["De Molen 3",10094,"Henk Tieck",19,0.75,0],["De Molen 3",10297,"Jaap Super",17,0.695,0],["De Molen 3",10298,"Wout Moes",20,0.784,0],["De Molen 3",10312,"Henk Hemel",15,0.504,0],["De Molen 3",10083,"Klaas Klasens",15,0.465,0],["De Molen 3",10287,"Gerrit Huigen",26,1.04,0],["De Molen 3",10095,"Jan de Vries",15,0.6,0],["De Molen 3",10072,"Henk Beekman",26,1.048,1],["De Molen 3",10085,"Henk Levering",27,1.08,1],["De Molen 3",10357,"Richard Fijen",20,0.8,1],["De Rietlanden (geen team)",10353,"Andries Velting",35,1.4,1],["De Rietlanden (geen team)",10318,"Frans Jan Verdoold",45,1.78,1],["De Rietlanden (geen team)",10239,"Theo Geurts",22,0.893,1],["De Rietlanden (geen team)",10241,"Willem Hoogwerf",42,1.675,1],["De Schalm (geen team)",10080,"Gerard Heijnen",60,2.406,1],["De Schalm (geen team)",10130,"Roel de Vries",30,1.2,1],["De Schalm 1",10106,"Jan Hobers",50,1.989,0],["De Schalm 1",10129,"Jan Vos",59,2.352,0],["De Schalm 1",10321,"Wiebe Doldersum",35,1.416,0],["De Schalm 1",10115,"Gezinus Mensing",41,1.632,0],["De Schalm 1",10128,"Roelof Visser",50,1.985,0],["De Schalm 1",10363,"Jans Meijering",42,1.674,0],["De Schalm 1",10131,"Klaas Wemmenhove",37,1.46,0],["De Schalm 1",10114,"Edwin Lugers",50,1.982,0],["De Schalm 1",10101,"Jan Geerlings",40,1.591,1],["De Schalm 1",10124,"Jan Scholten",31,1.248,1],["De Schalm 1",10099,"Leo Bosselaar",42,1.675,1],["De Schalm 2",10122,"Klaas Pruim",30,1.206,0],["De Schalm 2",10120,"Harco Poelman",57,2.26,0],["De Schalm 2",10119,"Jan Nijkamp",59,2.344,0],["De Schalm 2",10103,"Jan de Haan",53,2.106,0],["De Schalm 2",10099,"Leo Bosselaar",42,1.675,0],["De Schalm 2",10100,"Jan Braker",39,1.563,0],["De Schalm 2",10101,"Jan Geerlings",40,1.591,0],["De Schalm 2",10124,"Jan Scholten",31,1.248,0],["De Schalm 2",10121,"Johan Poker",33,1.305,1],["De Schalm 3",10350,"Harm Fietje",24,0.97,0],["De Schalm 3",10281,"Henk Bos",15,0.584,0],["De Schalm 3",10097,"Jan Bennink",35,1.414,0],["De Schalm 3",10334,"Roelof Vos",15,0.592,0],["De Schalm 3",10127,"Joop Verhoek",17,0.692,0],["De Schalm 3",10109,"Teun de Jager",23,0.938,0],["De Schalm 3",10110,"Jan Kleine",29,1.146,0],["De Schalm 3",10117,"Geert Moes",27,1.064,0],["De Schalm 3",10126,"Dennis Veenhuizen",22,0.862,0],["De Schalm 3",10365,"Wim Kemper",21,0.832,0],["De Schalm 3",10108,"Wietze Hogeveen",19,0.773,0],["De Schalm 3",10118,"Harry Mulder",24,0.96,0],["De Schalm 3",10313,"Jan Castel",21,0.84,0],["De Schalm 3",10325,"Derk Koelman",31,1.25,1],["De Schalm 3",10284,"Gienus Vries de",27,1.08,1],["De Schalm 4",10112,"Tinus Kuipers",15,0.55,0],["De Schalm 4",10284,"Gienus Vries de",27,1.08,0],["De Schalm 4",10116,"Bart Mensing",18,0.703,0],["De Schalm 4",10105,"Remmelt Hendriks",15,0.563,0],["De Schalm 4",10113,"Ep Luchies",19,0.74,0],["De Schalm 4",10332,"Gert Jan de Jonge",24,0.952,0],["De Schalm 4",10335,"Arie Piek",15,0.532,0],["De Schalm 4",10325,"Derk Koelman",31,1.25,0],["De Schalm 4",10121,"Johan Poker",33,1.305,0],["De Schalm 4",10104,"Ap de Haan",24,0.965,0],["De Schalm 4",10125,"Hans Scholten",19,0.744,0],["De Schalm 4",10313,"Jan Castel",21,0.84,1],["Emmen Centrum (geen team)",10139,"Hans Meertens",25,0.981,1],["Emmen Centrum 1",10132,"Ton Dimmendaal",33,1.317,0],["Emmen Centrum 1",10136,"Harm Hummel",21,0.837,0],["Emmen Centrum 1",10141,"Arie Scholten",35,1.4,0],["Emmen Centrum 1",10309,"Hans Mulder",21,0.854,0],["Emmen Centrum 1",10333,"Peter van der Kleij",32,1.26,0],["Emmen Centrum 1",10144,"Chris de Vries",30,1.19,0],["Emmen Centrum 1",10142,"Jan Snippe",17,0.667,0],["Emmen Centrum 1",10133,"Jan Doornbos",16,0.636,0],["Emmen Centrum 1",10135,"Gradus Fischer",19,0.746,0],["Emmen Centrum 1",10138,"Elzo van Klinken",25,0.99,0],["Nieuw Dordrecht 1",10152,"Harm Jalving",51,2.023,0],["Nieuw Dordrecht 1",10146,"Jans Bik",55,2.185,0],["Nieuw Dordrecht 1",10290,"Thijs Tabak",56,2.24,0],["Nieuw Dordrecht 1",10147,"Willem Botter",38,1.527,0],["Nieuw Dordrecht 1",10326,"Joop Lambers",79,3.14,0],["Nieuw Dordrecht 1",10162,"Piet von der Weide",44,1.773,0],["Nieuw Dordrecht 1",10153,"Roef Jalving",38,1.512,0],["Nieuw Dordrecht 1",10159,"Jan Strijker",30,1.196,1],["Nieuw Dordrecht 2",10154,"Grietus Jalving",26,1.047,0],["Nieuw Dordrecht 2",10159,"Jan Strijker",30,1.196,0],["Nieuw Dordrecht 2",10145,"Henk Alberts",27,1.083,0],["Nieuw Dordrecht 2",10150,"Jan de Groot",17,0.693,0],["Nieuw Dordrecht 2",10155,"Lucy Jalving",23,0.916,0],["Nieuw Dordrecht 2",10158,"Roef Mink",25,1,0],["Nieuw Dordrecht 2",10148,"Paul de Bruin",20,0.792,0],["Nieuw Dordrecht 2",10161,"Fernand van der Velde",15,0.552,0],["Nieuw Dordrecht 2",10300,"Jan Mink",24,0.944,0],["Nieuw Dordrecht 2",10160,"Jan Stuiver",17,0.66,0],["Nieuw Dordrecht 2",10290,"Thijs Tabak",56,2.24,1],["Noorder Breedte (geen team)",10183,"Andries de Vries",15,0.6,1],["Noorder Breedte (geen team)",10360,"Gerard Robben",15,0.6,1],["Noorder Breedte 1",10172,"Hein Langen",32,1.292,0],["Noorder Breedte 1",10171,"Henk Kuhl",33,1.338,0],["Noorder Breedte 1",10179,"Ivo de Sousa",41,1.636,0],["Noorder Breedte 1",10167,"Bennie Heidotting",24,0.96,0],["Noorder Breedte 1",10175,"Jan ten Napel",32,1.264,0],["Noorder Breedte 1",10166,"Ton van Dijk",37,1.475,0],["Noorder Breedte 1",10185,"Nico van de Zwet",27,1.093,0],["Noorder Breedte 1",10164,"Gerrie Bartels",30,1.186,0],["Noorder Breedte 2",10173,"Gerrit Moes",18,0.72,0],["Noorder Breedte 2",10170,"Willem Jagt",28,1.116,0],["Noorder Breedte 2",10340,"Jan Voorn",25,0.984,0],["Noorder Breedte 2",10177,"Willie Peters",18,0.737,0],["Noorder Breedte 2",10169,"Gezinus den Herder",15,0.48,0],["Noorder Breedte 2",10362,"Herman Wubkes",23,0.92,0],["Noorder Breedte 2",10176,"Huib Oudenaarde",23,0.927,0],["Noorder Breedte 2",10168,"Martin Helle",27,1.096,0],["Noorder Breedte 2",10165,"Roef Boers",19,0.773,0],["Noorder Breedte 2",10174,"Gerrit Mulder",25,1,0],["Noorder Breedte 2",10178,"Henk Savenije",15,0.508,0],["Noorder Breedte 2",10359,"Cees Smit",25,1.006,0],["Noorder Breedte 2",10364,"Jan Buisman",15,0.46,0],["Noorder Breedte 2",10166,"Ton van Dijk",37,1.475,1],["Olde Stee 1",10188,"Geert Gerdes",52,2.07,0],["Olde Stee 1",10195,"Bennie Veringa",61,2.428,0],["Olde Stee 1",10193,"Douwe Sikkes",31,1.226,0],["Olde Stee 1",10194,"Jans Strating",30,1.196,0],["Olde Stee 1",10190,"Kas Langen",40,1.596,0],["Olde Stee 1",10196,"Bennie Wolbers",29,1.17,0],["Olde Stee 1",10338,"George Mink",36,1.42,0],["Olde Stee 1",10187,"Henk Fuhler",35,1.386,0],["Olde Stee 1",10189,"Piet Heyne",60,2.414,0],["Olde Stee 1",10192,"Peter Schutter",35,1.41,0],["Olde Stee 1",10191,"Koen Pruim",46,1.84,0],["Ons Belang (geen team)",10345,"Sam de Vries",15,0.6,1],["Ons Belang 1",10199,"Geert Winters",28,1.107,0],["Ons Belang 1",10197,"Andries Bijl",24,0.976,0],["Ons Belang 1",10156,"Renske Knol",15,0.56,0],["Ons Belang 1",10206,"Roef Strijker",24,0.974,0],["Ons Belang 1",10204,"Willie Moed",16,0.652,0],["Ons Belang 1",10198,"Bertus Veltrop",25,0.984,0],["Ons Belang 1",10205,"Piet de Jonge",25,1,0],["Ons Belang 1",10201,"Henk Knuppe",22,0.885,0],["Ons Belang 1",10203,"Jan Pruim",37,1.47,0],["Ons Plezier (geen team)",10228,"Jaap Rook",16,0.64,1],["Ons Plezier (geen team)",10319,"Ruud Post",15,0.6,1],["Ons Plezier 1",10069,"Jan de Vries",39,1.573,0],["Ons Plezier 1",10208,"Jan Bouws",63,2.534,0],["Ons Plezier 1",10211,"Jan Gebert",29,1.175,0],["Ons Plezier 1",10215,"Hans Huizing",62,2.487,0],["Ons Plezier 1",10219,"Hip van der Kaap",31,1.232,0],["Ons Plezier 1",10233,"Tonnie Wendels",67,2.686,0],["Ons Plezier 1",10216,"Jan Huizing",33,1.313,0],["Ons Plezier 1",10234,"Riekele Witteveen",25,0.986,1],["Ons Plezier 1",10227,"Henk Prinsen",27,1.073,1],["Ons Plezier 1",10230,"Marcel Teiken",33,1.336,1],["Ons Plezier 2",10220,"Henk Kip",19,0.763,0],["Ons Plezier 2",10230,"Marcel Teiken",33,1.336,0],["Ons Plezier 2",10222,"Geert Koops",15,0.44,0],["Ons Plezier 2",10213,"Ruud Harms",16,0.63,0],["Ons Plezier 2",10223,"Harry Loves",20,0.796,0],["Ons Plezier 2",10232,"Roelof Trip",17,0.673,0],["Ons Plezier 2",10231,"Henk Trechsel",15,0.571,0],["Ons Plezier 2",10234,"Riekele Witteveen",25,0.986,0],["Ons Plezier 2",10226,"Andre van Peursem",15,0.595,0],["Ons Plezier 2",10315,"Reint Grevink",15,0.616,0],["Ons Plezier 2",10352,"Henk Hubels",20,0.786,0],["Ons Plezier 2",10214,"Harry Helder",24,0.95,0],["Ons Plezier 2",10221,"Frits Koops",17,0.66,1],["Ons Plezier 2",10229,"Geert Super",17,0.675,1],["Ons Plezier 2",10211,"Jan Gebert",29,1.175,1],["Ons Plezier 2",10216,"Jan Huizing",33,1.313,1],["Ons Plezier 3",10217,"Harm Jalving",22,0.896,0],["Ons Plezier 3",10212,"Harm de Groot",20,0.81,0],["Ons Plezier 3",10218,"Aldert de Jonge",25,0.98,0],["Ons Plezier 3",10207,"Bennie Arling",19,0.763,0],["Ons Plezier 3",10225,"Gezinus Oost",22,0.892,0],["Ons Plezier 3",10227,"Henk Prinsen",27,1.073,0],["Ons Plezier 3",10224,"Ruud Norda",18,0.723,0],["Ons Plezier 3",10221,"Frits Koops",17,0.66,0],["Ons Plezier 3",10361,"Marcel van Zeben",22,0.86,0],["Ons Plezier 3",10229,"Geert Super",17,0.675,0],["Ons Plezier 3",10210,"Gonzalo Farinango",30,1.186,0],["Ons Plezier 3",10222,"Geert Koops",15,0.44,1],["Ons Plezier 3",10223,"Harry Loves",20,0.796,1],["Ons Plezier 3",10208,"Jan Bouws",63,2.534,1],["Ons Plezier 3",10232,"Roelof Trip",17,0.673,1],["Rietlanden 1",10242,"Freddie Koers",50,2,0],["Rietlanden 1",10244,"Henk Marsman",70,2.818,0],["Rietlanden 1",10322,"Theo Baks",50,2.018,0],["Rietlanden 1",10247,"Albert Rossing",55,2.188,0],["Rietlanden 1",10293,"Wiebe Hof",42,1.698,0],["Rietlanden 1",10251,"Anne Tinge",47,1.875,0],["Rietlanden 1",10292,"Henk Smit",48,1.931,0],["Rietlanden 1",10236,"Kees Docter",31,1.23,0],["Rietlanden 1",10238,"Geert Fidder",44,1.772,1],["Rietlanden 2",10240,"Arjan Goudriaan",30,1.215,0],["Rietlanden 2",10246,"Joep van Ommeren",33,1.332,0],["Rietlanden 2",10291,"Addy de Klein",41,1.62,0],["Rietlanden 2",10248,"Corrie Saadhoff",42,1.684,0],["Rietlanden 2",10238,"Geert Fidder",44,1.772,0],["Rietlanden 2",10245,"Geert Nijland",16,0.62,0],["Rietlanden 2",10243,"Joop Luchtmeijer",19,0.741,0],["Rietlanden 2",10249,"Menne Schulte",29,1.156,0],["Rietlanden 2",10235,"Louis Blömer",23,0.92,0],["Rietlanden 2",10356,"Rob Stoppelenburg",20,0.813,0],["Rietlanden 2",10354,"Wicher Scholten",23,0.912,0],["Rietlanden 2",10355,"Jan van den Bosch",15,0.6,0],["Rietlanden 2",10236,"Kees Docter",31,1.23,1],["Rietlanden 2",10322,"Theo Baks",50,2.018,1],["Zwartemeer (geen team)",10347,"Harrie Loves",24,0.96,1],["Zwartemeer (geen team)",10306,"Jurgen de Groot",22,0.88,1],["Zwartemeer (geen team)",10336,"Lammert Haverkamp",15,0.6,1],["Zwartemeer (geen team)",10262,"Tjibbe Kuik",15,0.6,1],["Zwartemeer 1",10308,"Albert Kuiper",28,1.116,0],["Zwartemeer 1",10271,"Cees Waardenburg",33,1.335,0],["Zwartemeer 1",10289,"Joop Huls",35,1.384,0],["Zwartemeer 1",10259,"Ben Hartmann",38,1.533,0],["Zwartemeer 1",10337,"Jos Funke",21,0.844,0],["Zwartemeer 1",10269,"Michel Schuurmans",29,1.142,0],["Zwartemeer 1",10258,"Tonnie Grouwe",26,1.035,0],["Zwartemeer 1",10253,"Bertus Berends",36,1.433,0],["Zwartemeer 1",10366,"Carel de Munnik",15,0.58,0],["Zwartemeer 1",10260,"Jan Hoogeveen",31,1.228,1],["Zwartemeer 2",10255,"Geert Bruins",17,0.668,0],["Zwartemeer 2",10267,"Maarten Paas",18,0.706,0],["Zwartemeer 2",10254,"Theo Berends",22,0.863,0],["Zwartemeer 2",10264,"Gerry Nijland",26,1.04,0],["Zwartemeer 2",10263,"Rieks Lubben",15,0.549,0],["Zwartemeer 2",10268,"Ben Post",15,0.469,0],["Zwartemeer 2",10252,"Abel Benjamins",15,0.428,0],["Zwartemeer 2",10261,"Henk Kanbier",15,0.6,0],["Zwartemeer 2",10202,"Bertus Hemme",15,0.6,0],["Zwartemeer 2",10260,"Jan Hoogeveen",31,1.228,0],["Zwartemeer 2",10256,"Wim Cordes",17,0.672,0],["Zwartemeer 2",10271,"Cees Waardenburg",33,1.335,1],["Zwartemeer 2",10258,"Tonnie Grouwe",26,1.035,1]];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => (v === '' || v == null || isNaN(+v)) ? null : +v;
+
+function store(key, val){ try{ if(val === undefined) return JSON.parse(localStorage.getItem(key)); localStorage.setItem(key, JSON.stringify(val)); }catch(e){ return null; } }
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* ---------------- Puntentelling (identiek aan MpPlayer1/MpPlayer2 in Excel) ---------------- */
+function matchPoints(g1, t1, g2, t2){
+  if(g1 == null || g2 == null || t1 == null || t2 == null) return null;
+  const d1 = g1 - t1, d2 = g2 - t2, reached = g1 >= t1;
+  if(d1 > d2 && reached) return 3;
+  if(d1 === d2 && reached) return 2;
+  if(d1 > d2) return 2;
+  if(d1 === d2) return 1;
+  if(reached) return 1;
+  return 0;
+}
+
+/* ---------------- Spelersdatabase ---------------- */
+const builtinPlayers = () => BUILTIN_PLAYERS.map(r => ({team:r[0], bondsnr:r[1], name:r[2], tcar:r[3], moy:r[4], reserve:!!r[5]}));
+let players = store('wf.players') || builtinPlayers();
+let playersMeta = store('wf.playersMeta') || {source:'Ingebouwde momentopname', at:null, version:BUILTIN_VERSION};
+// Nog de oude ingebouwde lijst (zonder teamnummers) in de browser? Dan automatisch de nieuwe gebruiken.
+if(['Ingebouwde momentopname', 'Bestand: Spelers_biljartpoint.xlsx'].includes(playersMeta.source) && playersMeta.version !== BUILTIN_VERSION
+   && playersMeta.source !== ONLINE_SOURCE){
+  players = builtinPlayers(); playersMeta = {source:'Ingebouwde momentopname', at:null, version:BUILTIN_VERSION};
+  store('wf.players', players); store('wf.playersMeta', playersMeta);
+}
+const NO_TEAM = /\(geen team\)$/;   // spelers die nog niet gespeeld hebben: alleen vindbaar als invaller
+const teams = () => [...new Set(players.map(p => p.team).filter(t => t && !NO_TEAM.test(t)))].sort((a,b) => a.localeCompare(b,'nl'));
+function savePlayers(meta){ if(meta) playersMeta = meta; store('wf.players', players); store('wf.playersMeta', playersMeta); }
+function findPlayer(bondsnr){ return players.find(p => String(p.bondsnr) === String(bondsnr)); }
+
+// Zet rijen uit een sheet (met kopregel) om naar spelers; zoekt kolommen op naam.
+function rowsToPlayers(rows){
+  const hi = rows.findIndex(r => r && r.some(c => /^naam$/i.test(String(c).trim())));
+  if(hi < 0) return null;
+  const h = rows[hi].map(c => String(c ?? '').trim().toLowerCase());
+  const col = (...names) => h.findIndex(x => names.includes(x));
+  const cT = col('teamnaam','team','club'), cB = col('bondsnr','bondsnummer','lidnr'), cN = col('naam','spelersnaam'),
+        cC = col('temaken','te maken','tcar','caramboles'), cM = col('moy','moyenne'), cR = col('reserve');
+  if(cN < 0 || cC < 0) return null;
+  return rows.slice(hi+1).filter(r => r && r[cN]).map(r => ({
+    team: cT >= 0 ? String(r[cT] ?? '').trim() : '', bondsnr: cB >= 0 ? r[cB] : '', name: String(r[cN]).trim(),
+    tcar: num(r[cC]), moy: cM >= 0 ? num(r[cM]) : null, reserve: cR >= 0 && /^(ja|1|true|x)$/i.test(String(r[cR]).trim()) }));
+}
+function workbookToPlayers(wb){
+  for(const n of wb.SheetNames){
+    const res = rowsToPlayers(XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, defval:''}));
+    if(res && res.length) return res;
+  }
+  return null;
+}
+/* ---------------- Dagelijkse moyenne-controle ---------------- */
+const isOnline = () => /^https?:$/.test(location.protocol);
+let onlineData = null;
+function diffPlayers(oldList, newList){
+  const oldBy = new Map(oldList.map(p => [String(p.bondsnr), p])), seen = new Set(), changed = [], added = [];
+  for(const p of newList){
+    const k = String(p.bondsnr); if(seen.has(k)) continue; seen.add(k);
+    const o = oldBy.get(k);
+    if(!o) added.push(p);
+    else if(num(o.moy) !== num(p.moy) || num(o.tcar) !== num(p.tcar)) changed.push({p, o});
+  }
+  const removed = [...new Set(oldList.map(p => String(p.bondsnr)))].filter(k => !seen.has(k)).map(k => oldBy.get(k));
+  return {changed, added, removed};
+}
+const rowsToList = rows => rows.map(r => ({team:r[0], bondsnr:r[1], name:r[2], tcar:r[3], moy:r[4], reserve:!!r[5]}));
+async function checkOnline(manual){
+  if(!isOnline()){ if(manual) toast('Controleren kan alleen via de online link van de app'); return; }
+  try{
+    const res = await fetch(ONLINE_URL + '?t=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    onlineData = await res.json();
+  }catch(e){ if(manual) toast('Controleren mislukt: ' + e.message); return; }
+  const fmt = d => new Date(d).toLocaleDateString('nl-NL', {day:'numeric', month:'long', year:'numeric'});
+  if(onlineData.version === playersMeta.version){
+    $('#upd').hidden = true;
+    if(manual) toast('Moyennes zijn actueel (bijgewerkt ' + fmt(onlineData.bijgewerkt) + ')');
+    return;
+  }
+  // ?bijwerken in de link (bijv. gedeeld in de app-groep) = meteen bijwerken
+  if(new URLSearchParams(location.search).has('bijwerken')) return applyOnline();
+  if(!manual && store('wf.dismissed') === onlineData.version) return;
+  const d = diffPlayers(players, rowsToList(onlineData.spelers));
+  // alleen teamindeling verschoven (geen moyenne/nieuwe speler)? dan stil bijwerken
+  if(!d.changed.length && !d.added.length && !d.removed.length) return applyOnline(true);
+  const parts = [d.changed.length && `${d.changed.length} moyenne${d.changed.length > 1 ? 's' : ''} gewijzigd`,
+                 d.added.length && `${d.added.length} nieuwe speler${d.added.length > 1 ? 's' : ''}`,
+                 d.removed.length && `${d.removed.length} speler${d.removed.length > 1 ? 's' : ''} verdwenen`].filter(Boolean);
+  const moy = v => num(v) == null ? '–' : num(v).toFixed(3).replace('.', ',');
+  const li = [...d.changed.map(({p, o}) => `<li>${esc(p.name)} (${esc(p.team)}): ${moy(o.moy)} → <b>${moy(p.moy)}</b> · ${esc(o.tcar)} → <b>${esc(p.tcar)}</b> car</li>`),
+              ...d.added.map(p => `<li>Nieuw: ${esc(p.name)} (${esc(p.team)}) · ${moy(p.moy)} · ${esc(p.tcar)} car</li>`)];
+  $('#upd').innerHTML = `<span class="msg">🔔 <b>Nieuwe moyennes</b> van ${fmt(onlineData.bijgewerkt)}${parts.length ? ': ' + parts.join(', ') : ''}.</span>
+    <button class="btn primary" id="updGo">Bijwerken</button><button class="btn" id="updLater">Later</button>
+    ${li.length ? `<details><summary>Bekijk wijzigingen</summary><ul>${li.join('')}</ul></details>` : ''}`;
+  $('#upd').hidden = false;
+  $('#updGo').onclick = applyOnline;
+  $('#updLater').onclick = () => { store('wf.dismissed', onlineData.version); $('#upd').hidden = true; };
+}
+function applyOnline(silent){
+  if(!onlineData) return;
+  players = rowsToList(onlineData.spelers);
+  savePlayers({source:ONLINE_SOURCE, at:onlineData.bijgewerkt, version:onlineData.version});
+  // Tcar van nog niet gespeelde partijen op het open formulier meenemen
+  let n = 0;
+  for(const side of ['home', 'away']) for(const r of M[side].rows){
+    const p = r.bondsnr && r.gcar === '' && findPlayer(r.bondsnr);
+    if(p && String(p.tcar) !== String(r.tcar)){ r.tcar = p.tcar; n++; }
+  }
+  persist(); afterPlayersChanged();
+  $('#upd').hidden = true;
+  if(location.search) history.replaceState(null, '', location.pathname);
+  if(silent === true) return;
+  toast(`Moyennes bijgewerkt (${players.length} spelers)` + (n ? ` · ${n}× Tcar op het formulier aangepast` : ''));
+}
+
+/* ---------------- Wedstrijd-state ---------------- */
+function currentSeason(d = new Date()){ const y = d.getFullYear(); return d.getMonth() >= 7 ? `${y}-${y+1}` : `${y-1}-${y}`; }
+const emptyRow = () => ({bondsnr:'', name:'', tcar:'', gcar:'', brt:'', hs:'', turns:[]});
+const emptySide = () => ({team:'', captain:'', sig:'', rows:Array.from({length:ROWS}, emptyRow)});
+function newMatch(){
+  return {id:'m' + Date.now(), org:store('wf.org') || DEFAULT_ORG, season:currentSeason(), date:new Date().toISOString().slice(0,10),
+          round:'', loc:'', home:emptySide(), away:emptySide()};
+}
+let M = store('wf.current') || newMatch();
+const persist = () => store('wf.current', M);
+
+function sidePoints(side){
+  const other = side === 'home' ? 'away' : 'home';
+  return M[side].rows.map((r, i) => {
+    const o = M[other].rows[i];
+    if(!r.name || !o.name) return null;
+    return matchPoints(num(r.gcar), num(r.tcar), num(o.gcar), num(o.tcar));
+  });
+}
+function totals(side){
+  const pts = sidePoints(side), rows = M[side].rows;
+  const sum = k => rows.reduce((a, r) => a + (num(r[k]) || 0), 0);
+  const any = pts.some(p => p != null);
+  return {pts, total: any ? pts.reduce((a, p) => a + (p || 0), 0) : null, gcar:sum('gcar'), tcar:sum('tcar'), brt:sum('brt')};
+}
+
+/* ---------------- Formulier UI ---------------- */
+function bindHeader(){
+  const map = {fOrg:'org', fSeason:'season', fDate:'date', fRound:'round', fLoc:'loc'};
+  for(const [id, k] of Object.entries(map)){
+    const el = $('#' + id); el.value = M[k] || '';
+    el.oninput = () => { M[k] = el.value; if(k === 'org') store('wf.org', el.value); persist(); };
+  }
+}
+/* ---------------- Zoeken op naam of bondsnummer ---------------- */
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+// Alle zoekwoorden moeten voorkomen (volgorde maakt niet uit, accenten worden genegeerd).
+// Is er een team gekozen, dan alleen spelers van dát team (bijv. De Schalm 1, niet De Schalm 2-4),
+// tenzij 'wide' aan staat (invaller uit een ander team zoeken): dan eerst het eigen team, daarna de rest.
+// Zonder team wordt in alle spelers gezocht. Eerst namen waarvan een woord met de zoekterm begint.
+function searchPlayers(q, team, wide = false){
+  const words = norm(q).split(/\s+/).filter(Boolean), nq = norm(q).trim();
+  const seen = new Set(), res = [];
+  for(const p of players){
+    const hay = norm(p.name) + ' ' + p.bondsnr;
+    if(!words.every(w => hay.includes(w))) continue;
+    if(team && !wide && p.team !== team) continue;
+    // dezelfde speler in meerdere andere teams maar één keer tonen, met alle teams erbij
+    const own = p.team === team, key = own ? p.bondsnr + '|own' : String(p.bondsnr);
+    if(seen.has(key)){ const e = res.find(x => !x.own && String(x.p.bondsnr) === key); if(e && !own) e.teams.push(p.team); continue; }
+    seen.add(key);
+    res.push({p, own, teams:[p.team], starts:!!nq && (norm(p.name).startsWith(nq) || norm(p.name).split(' ').some(x => x.startsWith(nq)))});
+  }
+  res.sort((a, b) => (b.own - a.own) || (b.starts - a.starts) || (a.own ? 0 : a.p.name.localeCompare(b.p.name, 'nl')));
+  return res.slice(0, 40);
+}
+function highlight(text, q){
+  const words = norm(q).split(/\s+/).filter(Boolean); if(!words.length) return esc(text);
+  const n = norm(text), mark = new Array(text.length).fill(false);
+  for(const w of words){ let i = n.indexOf(w); while(i >= 0){ for(let k = i; k < i + w.length; k++) mark[k] = true; i = n.indexOf(w, i + 1); } }
+  let out = '', open = false;
+  [...text].forEach((ch, i) => { if(mark[i] !== open){ out += mark[i] ? '<mark>' : '</mark>'; open = mark[i]; } out += esc(ch); });
+  return out + (open ? '</mark>' : '');
+}
+function initSearch(box, S, r, onPick){
+  const inp = box.querySelector('input'), list = box.querySelector('.ac-list');
+  let items = [], act = -1, wide = false;                  // wide = ook in andere teams zoeken (invaller)
+  const draw = () => {
+    const used = new Set(S.rows.filter(x => x !== r && x.bondsnr).map(x => String(x.bondsnr)));
+    items = searchPlayers(inp.value, S.team, wide);
+    if(S.team) items.push({toggle:true});                    // laatste regel: wisselen eigen team / alle teams
+    let h = '', sep = false;
+    items.forEach((it, i) => {
+      if(it.toggle){
+        h += `<div class="ac-item ac-toggle${i === act ? ' act' : ''}" data-i="${i}">${wide
+          ? `↩ Alleen spelers van ${esc(S.team)}` : '➕ Invaller uit ander team zoeken'}</div>`;
+        return;
+      }
+      if(!it.own && !sep){ sep = true; h += `<div class="ac-sep">Invallers uit andere teams${inp.value.trim() ? '' : ' – typ een naam om te zoeken'}</div>`; }
+      const u = used.has(String(it.p.bondsnr));
+      h += `<div class="ac-item${i === act ? ' act' : ''}${u ? ' used' : ''}" data-i="${i}"><span>${highlight(it.p.name, inp.value)}</span>
+        <small>${it.own ? (it.p.reserve ? 'reserve · ' : '') : esc(it.teams.join(', ')) + ' · '}${esc(it.p.bondsnr)} · ${esc(it.p.tcar ?? '')} car${u ? ' · al gekozen' : ''}</small></div>`;
+    });
+    const none = !items.some(it => !it.toggle);
+    const msg = inp.value ? (S.team && !wide ? `Geen speler van ${esc(S.team)} gevonden` : 'Geen speler gevonden') + ' – de ingetypte naam wordt als invaller gebruikt.' : 'Kies eerst een team of typ een naam.';
+    list.innerHTML = (none ? `<div class="ac-empty">${msg}</div>` : '') + h;
+    list.querySelector('.act')?.scrollIntoView({block:'nearest'});
+  };
+  const open = () => { box.classList.add('open'); draw(); };
+  const close = () => { box.classList.remove('open'); act = -1; wide = false; };
+  const pick = i => {
+    const it = items[i]; if(!it) return;
+    if(it.toggle){ wide = !wide; act = -1; draw(); inp.focus(); return; }
+    inp.value = it.p.name; close(); onPick(it.p);
+  };
+  inp.onfocus = () => { inp.select(); open(); };
+  inp.onblur = () => setTimeout(close, 150);
+  inp.oninput = () => { act = inp.value.trim() ? 0 : -1; open(); onPick(null, inp.value.trim()); };
+  inp.onkeydown = e => {
+    if(e.key === 'ArrowDown'){ e.preventDefault(); if(!box.classList.contains('open')) open(); act = Math.min(items.length - 1, act + 1); draw(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); act = Math.max(0, act - 1); draw(); }
+    else if(e.key === 'Enter'){ if(box.classList.contains('open') && act >= 0){ e.preventDefault(); pick(act); } }
+    else if(e.key === 'Escape'){ close(); }
+  };
+  list.onmousedown = e => e.preventDefault();                // focus in het zoekveld houden
+  list.onclick = e => { const el = e.target.closest('.ac-item'); if(el) pick(+el.dataset.i); };
+}
+function renderSide(side){
+  const S = M[side], el = $(side === 'home' ? '#sideHome' : '#sideAway');
+  const teamOpts = ['<option value="">— kies team —</option>', ...teams().map(t => `<option${t === S.team ? ' selected' : ''}>${esc(t)}</option>`)];
+  if(S.team && !teams().includes(S.team)) teamOpts.push(`<option selected>${esc(S.team)}</option>`);
+  el.innerHTML = `
+    <h2>${side === 'home' ? 'Thuisspelend' : 'Uitspelend'} <select data-k="team">${teamOpts.join('')}</select></h2>
+    <table class="entry">
+      <thead><tr><th>Nr</th><th>Naam</th><th>Bondsnr</th><th>Tcar</th><th>Gcar</th><th>Brt</th><th>HS</th><th>Ptn</th></tr></thead>
+      <tbody>${S.rows.map((r, i) => `
+        <tr data-i="${i}">
+          <td class="nr">${i+1}</td>
+          <td><div class="ac"><input data-f="name" value="${esc(r.name)}" placeholder="🔍 zoek naam of bondsnr" autocomplete="off" spellcheck="false"><div class="ac-list"></div></div></td>
+          <td class="num" style="width:70px"><input data-f="bondsnr" inputmode="numeric" value="${esc(r.bondsnr)}"></td>
+          <td class="num"><input data-f="tcar" inputmode="numeric" value="${esc(r.tcar)}"></td>
+          <td class="num"><input data-f="gcar" inputmode="numeric" value="${esc(r.gcar)}"></td>
+          <td class="num"><input data-f="brt" inputmode="numeric" value="${esc(r.brt)}"></td>
+          <td class="num"><input data-f="hs" inputmode="numeric" value="${esc(r.hs)}"></td>
+          <td class="pts" data-pts></td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td></td><td colspan="3" style="text-align:right">Wedstrijdpunten</td><td data-tg class="num" style="text-align:right"></td><td></td><td></td><td class="pts" data-tp></td></tr></tfoot>
+    </table>
+    <div class="sig">
+      <div class="row"><span class="hint">Aanvoerder</span><input data-k="captain" value="${esc(S.captain)}" placeholder="naam aanvoerder"></div>
+      <canvas data-sig></canvas>
+      <div class="row"><span class="hint">Teken hierboven met vinger, pen of muis</span><button class="btn small" data-clear>Wissen</button></div>
+    </div>`;
+
+  el.querySelector('[data-k="team"]').onchange = e => { S.team = e.target.value; persist(); renderSide(side); recalc(); };
+  el.querySelector('[data-k="captain"]').oninput = e => { S.captain = e.target.value; persist(); };
+  el.querySelectorAll('tbody tr').forEach(tr => {
+    const r = S.rows[+tr.dataset.i];
+    initSearch(tr.querySelector('.ac'), S, r, (p, typed) => {
+      if(p) Object.assign(r, {bondsnr:p.bondsnr, name:p.name, tcar:p.tcar ?? ''});
+      else {                                                 // vrij getypt: koppeling met gekozen speler loslaten
+        const cur = findPlayer(r.bondsnr);
+        r.name = typed;
+        if(!typed || (cur && cur.name !== typed)) Object.assign(r, {bondsnr:'', tcar:''});
+      }
+      tr.querySelector('[data-f="bondsnr"]').value = r.bondsnr;
+      tr.querySelector('[data-f="tcar"]').value = r.tcar;
+      persist(); recalc();
+    });
+    tr.querySelectorAll('input:not([data-f="name"])').forEach(inp => inp.oninput = () => {
+      const f = inp.dataset.f; r[f] = inp.value.trim();
+      if(f === 'bondsnr'){ const p = findPlayer(r.bondsnr); if(p){ r.name = p.name; r.tcar = p.tcar; tr.querySelector('[data-f="tcar"]').value = p.tcar; tr.querySelector('[data-f="name"]').value = p.name; } }
+      if(['gcar','brt','hs'].includes(f)) r.turns = [];   // handmatige invoer overschrijft het scoreblad
+      persist(); recalc();
+    });
+  });
+  initSignature(el.querySelector('[data-sig]'), S, el.querySelector('[data-clear]'));
+}
+function recalc(){
+  for(const side of ['home','away']){
+    const el = $(side === 'home' ? '#sideHome' : '#sideAway'), t = totals(side);
+    el.querySelectorAll('[data-pts]').forEach((td, i) => td.textContent = t.pts[i] ?? '');
+    el.querySelector('[data-tp]').textContent = t.total ?? '';
+    el.querySelector('[data-tg]').textContent = t.gcar || '';
+  }
+}
+
+/* ---------------- Handtekeningen ---------------- */
+function initSignature(canvas, S, clearBtn){
+  const ctx = canvas.getContext('2d');
+  const size = () => {
+    const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if(!r.width) return;
+    canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+    if(S.sig){ const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = S.sig; }
+  };
+  size(); canvas._resize = size;
+  let drawing = false;
+  const pos = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  canvas.onpointerdown = e => { drawing = true; canvas.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
+  canvas.onpointermove = e => { if(!drawing) return; ctx.lineTo(...pos(e)); ctx.stroke(); };
+  canvas.onpointerup = canvas.onpointercancel = () => { if(!drawing) return; drawing = false; S.sig = canvas.toDataURL('image/png'); persist(); };
+  clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); S.sig = ''; persist(); };
+}
+
+/* ---------------- Live scoreblad ---------------- */
+let sbIdx = 0, sbExtra = 0;
+function syncFromTurns(r){
+  const t = r.turns.map(num).filter(v => v != null);
+  if(!t.length) return;
+  r.gcar = String(t.reduce((a, b) => a + b, 0)); r.brt = String(t.length); r.hs = String(Math.max(...t));
+}
+function renderPills(){
+  $('#sbPills').innerHTML = M.home.rows.map((r, i) => {
+    const o = M.away.rows[i];
+    return `<button data-i="${i}" class="${i === sbIdx ? 'on' : ''}">Partij ${i+1}${r.name || o.name ? ': ' + esc((r.name||'?').split(' ')[0]) + ' – ' + esc((o.name||'?').split(' ')[0]) : ''}</button>`;
+  }).join('');
+  $('#sbPills').querySelectorAll('button').forEach(b => b.onclick = () => { sbIdx = +b.dataset.i; sbExtra = 0; renderScore(); });
+}
+function renderScore(){
+  renderPills();
+  const h = M.home.rows[sbIdx], a = M.away.rows[sbIdx];
+  const n = Math.max(25, h.turns.length, a.turns.length) + sbExtra;
+  const box = $('#sbBody');
+  const head = (r, cls, team) => `
+    <div class="sb-player side ${cls}">
+      <div class="hint">${esc(team || (cls === 'home' ? 'Thuis' : 'Uit'))}</div>
+      <div class="nm">${esc(r.name || '— geen speler —')}</div>
+      <div class="big" data-total="${cls}">0</div>
+      <div class="hint" data-stats="${cls}"></div>
+      <div class="bar-out"><div class="bar-in" data-bar="${cls}" style="width:0"></div></div>
+    </div>`;
+  box.innerHTML = `
+    <div class="sb-head">${head(h, 'home', M.home.team)}${head(a, 'away', M.away.team)}</div>
+    <table class="sb"><thead><tr><th>Beurt</th><th>Serie thuis</th><th>Totaal</th><th>Serie uit</th><th>Totaal</th></tr></thead>
+    <tbody>${Array.from({length:n}, (_, i) => `<tr><td>${i+1}</td>
+      <td><input inputmode="numeric" data-s="home" data-t="${i}" value="${esc(h.turns[i] ?? '')}"></td><td class="tot" data-c="home${i}"></td>
+      <td><input inputmode="numeric" data-s="away" data-t="${i}" value="${esc(a.turns[i] ?? '')}"></td><td class="tot" data-c="away${i}"></td></tr>`).join('')}</tbody></table>
+    <p style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="sbMore">+5 beurten</button>
+      <button class="btn" id="sbClear">Partij wissen</button>
+      <span class="hint">Enter springt naar het volgende vak. Gcar, beurten en hoogste serie worden automatisch op het formulier gezet.</span></p>`;
+  const inputs = [...box.querySelectorAll('input[data-s]')];
+  inputs.forEach((inp, k) => {
+    inp.oninput = () => {
+      const r = inp.dataset.s === 'home' ? h : a, t = +inp.dataset.t;
+      r.turns[t] = inp.value.trim();
+      while(r.turns.length && (r.turns[r.turns.length-1] ?? '') === '') r.turns.pop();
+      if(r.turns.length) syncFromTurns(r); else Object.assign(r, {gcar:'', brt:'', hs:''});
+      persist(); updateScore();
+    };
+    inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); inputs[k+1]?.focus(); } };
+  });
+  $('#sbMore').onclick = () => { sbExtra += 5; renderScore(); };
+  $('#sbClear').onclick = () => { if(!confirm('Alle beurten van deze partij wissen?')) return;
+    for(const r of [h, a]) Object.assign(r, {turns:[], gcar:'', brt:'', hs:''}); persist(); renderScore(); };
+  updateScore();
+}
+function updateScore(){
+  const pairs = {home:M.home.rows[sbIdx], away:M.away.rows[sbIdx]};
+  for(const [k, r] of Object.entries(pairs)){
+    let run = 0; const tc = num(r.tcar);
+    const n = $('#sbBody').querySelectorAll(`input[data-s="${k}"]`).length;
+    for(let i = 0; i < n; i++){
+      const cell = $('#sbBody').querySelector(`[data-c="${k}${i}"]`), v = num(r.turns[i]);
+      if(v != null){ run += v; cell.textContent = run; } else cell.textContent = '';
+      cell.classList.toggle('reached', v != null && tc != null && run >= tc);
+    }
+    const t = r.turns.map(num).filter(v => v != null);
+    $(`[data-total="${k}"]`).textContent = run + (tc != null ? ' / ' + tc : '');
+    $(`[data-stats="${k}"]`).textContent = `Beurten ${t.length} · HS ${t.length ? Math.max(...t) : 0} · Moy ${t.length ? (run / t.length).toFixed(3) : '0.000'}`;
+    $(`[data-bar="${k}"]`).style.width = tc ? Math.min(100, run / tc * 100) + '%' : '0';
+  }
+}
+
+/* ---------------- Afdrukbare weergave (print + PDF) ---------------- */
+const fmtDate = d => d ? new Date(d + 'T12:00').toLocaleDateString('nl-NL', {day:'2-digit', month:'2-digit', year:'numeric'}) : '';
+function isoWeek(d){ if(!d) return ''; const t = new Date(d + 'T12:00'); t.setDate(t.getDate() + 3 - (t.getDay() + 6) % 7);
+  const w1 = new Date(t.getFullYear(), 0, 4); return 1 + Math.round(((t - w1) / 864e5 - 3 + (w1.getDay() + 6) % 7) / 7); }
+
+function copyHTML(){
+  const side = key => {
+    const S = M[key], t = totals(key);
+    return `<div class="fside">
+      <div class="lbl">${key === 'home' ? 'Thuisspelend' : 'Uitspelend'}</div>
+      <div class="lbl">Team:<b>${esc(S.team)}</b></div>
+      <table><colgroup><col style="width:5.5mm"><col style="width:17.5mm"><col><col style="width:11mm"><col style="width:10.5mm"><col style="width:9mm"></colgroup>
+      <thead><tr><th>Nr</th><th>Bondsnr</th><th>Naam</th><th>Tcar</th><th>Gcar</th><th>Ptn</th></tr></thead>
+      <tbody>${S.rows.map((r, i) => `<tr><td class="r">${i+1}</td><td>${esc(r.bondsnr)}</td><td>${esc(r.name)}</td>
+        <td class="r">${esc(r.tcar)}</td><td class="r">${esc(r.gcar)}</td><td class="c">${t.pts[i] ?? ''}</td></tr>`).join('')}
+        <tr class="wp"><td colspan="5" class="t">Wedstrijdpunten</td><td class="box">${t.total ?? ''}</td></tr></tbody></table>
+      <div class="fsig">Handtekening:<span class="dots">${S.sig ? `<img src="${S.sig}">` : ''}</span>${S.captain ? `<small>(${esc(S.captain)})</small>` : ''}</div>
+      ${key === 'home' ? `<div class="dat">Datum: ${fmtDate(M.date)}</div>` : ''}
+    </div>`;
+  };
+  return `<div class="fcopy">
+    <div class="fbar"><span>${esc(M.org)}</span><span>Wedstrijdformulier ${esc(M.season)}</span></div>
+    <div class="fsides">${side('home')}<div></div>${side('away')}</div></div>`;
+}
+// Standaard 2 exemplaren op 1 A4 (zoals het origineel); "separate" = elk exemplaar op een eigen A4.
+function pagesForm(separate){
+  return separate ? [1, 2].map(() => `<div class="page">${copyHTML()}</div>`)
+                  : [`<div class="page">${copyHTML()}${copyHTML()}</div>`];
+}
+function pagesScore(){
+  const blk = i => {
+    const h = M.home.rows[i], a = M.away.rows[i], pts = [sidePoints('home')[i], sidePoints('away')[i]];
+    const run = r => { let t = 0; return Array.from({length:25}, (_, k) => { const v = num(r.turns[k]); if(v != null){ t += v; return t; } return ''; }); };
+    const tH = run(h), tA = run(a);
+    // één speler = 6 kolommen: Beurt/Serie/Totaal voor beurt 1-13 en 14-25
+    const cells = (r, tot, k) => {
+      const c = n => `<td class="b">${n+1}</td><td>${esc(r.turns[n] ?? '')}</td><td>${tot[n]}</td>`;
+      return c(k) + (k + 13 < 25 ? c(k + 13) : '<td class="g"></td><td class="g"></td><td class="g"></td>');
+    };
+    const bh = 'Beurt</td><td>Serie</td><td>Totaal</td><td>Beurt</td><td>Serie</td><td>Totaal';
+    return `<table class="sbk"><colgroup>${'<col style="width:5.5mm"><col><col>'.repeat(4)}</colgroup>
+      <tr class="top"><td class="w">W.</td><td>${isoWeek(M.date)}</td><td colspan="10" class="tm">${esc(M.home.team)} &nbsp;--&nbsp; ${esc(M.away.team)}</td></tr>
+      <tr class="ap"><td colspan="2" class="l">Aantal p.</td><td>${esc(h.tcar)}</td><td colspan="2">datum:</td><td colspan="3">${fmtDate(M.date)}</td>
+        <td colspan="2" class="l">Aantal p.</td><td colspan="2">${esc(a.tcar)}</td></tr>
+      <tr class="nh"><td>nr.</td><td colspan="5">Naam</td><td>nr.</td><td colspan="5">Naam</td></tr>
+      <tr class="nv"><td>${h.name ? i + 1 : ''}</td><td colspan="5">${esc(h.name)}</td><td>${a.name ? i + 1 : ''}</td><td colspan="5">${esc(a.name)}</td></tr>
+      <tr class="bh"><td>${bh}</td><td>${bh}</td></tr>
+      ${Array.from({length:13}, (_, k) => `<tr>${cells(h, tH, k)}${cells(a, tA, k)}</tr>`).join('')}
+      <tr class="ft"><td colspan="3">Totaal</td><td colspan="3" class="v">${esc(h.gcar)}</td><td colspan="3">Totaal</td><td colspan="3" class="v">${esc(a.gcar)}</td></tr>
+      <tr class="ft"><td colspan="3">Matchpunten</td><td colspan="3" class="v">${pts[0] ?? ''}</td><td colspan="3">Matchpunten</td><td colspan="3" class="v">${pts[1] ?? ''}</td></tr>
+    </table>`;
+  };
+  return [0, 4].map(s => `<div class="page"><div class="sbgrid">${[0,1,2,3].map(k => blk(s + k)).join('')}</div></div>`);
+}
+function doPrint(pages){ $('#printRoot').innerHTML = pages.join(''); setTimeout(() => window.print(), 50); }
+async function doPDF(){
+  if(!window.html2pdf) return toast('PDF-bibliotheek niet geladen – gebruik Afdrukken → "Opslaan als PDF"');
+  toast('PDF maken…');
+  // Elke A4 apart renderen en als eigen pagina toevoegen, zodat niets verschuift
+  const pages = [...pagesForm(false), ...pagesScore()].map(h => { const d = document.createElement('div'); d.innerHTML = h; return d.firstElementChild; });
+  const name = `Wedstrijdformulier ${M.date} ${M.home.team || 'thuis'} - ${M.away.team || 'uit'}.pdf`.replace(/[\\/:*?"<>|]/g, '');
+  let w = html2pdf().set({margin:8, filename:name, image:{type:'jpeg', quality:.96}, html2canvas:{scale:2, backgroundColor:'#fff'},
+    jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}}).from(pages[0]).toPdf();
+  for(const pg of pages.slice(1)) w = w.get('pdf').then(pdf => pdf.addPage()).from(pg).toContainer().toCanvas().toPdf();
+  await w.save();
+}
+
+/* ---------------- Excel-export ---------------- */
+// Kleine helper om een opgemaakt werkblad cel voor cel op te bouwen (xlsx-js-style)
+function xSheet(){
+  const ws = {}, merges = []; let maxR = 0, maxC = 0;
+  const ref = (r, c) => XLSX.utils.encode_cell({r, c});
+  const style = o => {
+    const st = {font:{name:'Arial', sz:o.sz || 10, bold:!!o.b}, alignment:{vertical:'center', horizontal:o.h || 'general'}};
+    if(o.fc) st.font.color = {rgb:o.fc};
+    if(o.fill) st.fill = {patternType:'solid', fgColor:{rgb:o.fill}};
+    st.border = o.bd ? {...o.bd} : {};
+    return st;
+  };
+  const set = (r, c, v, o = {}, f) => {
+    const cell = {t:typeof v === 'number' ? 'n' : 's', v:v == null ? '' : v, s:style(o)};
+    if(f) cell.f = f;
+    ws[ref(r, c)] = cell; maxR = Math.max(maxR, r); maxC = Math.max(maxC, c);
+  };
+  // rand toevoegen aan (eventueel lege) cel zonder de rest van de opmaak te verliezen
+  const border = (r, c, sides) => { if(!ws[ref(r, c)]) set(r, c, '', {}); Object.assign(ws[ref(r, c)].s.border, sides); };
+  const merge = (r, c1, c2, r2 = r) => merges.push({s:{r, c:c1}, e:{r:r2, c:c2}});
+  const done = (cols, rows) => { ws['!ref'] = XLSX.utils.encode_range({s:{r:0, c:0}, e:{r:maxR, c:maxC}}); ws['!merges'] = merges;
+    ws['!cols'] = cols.map(w => ({wch:w})); ws['!rows'] = rows.map(h => ({hpt:h}));
+    ws['!margins'] = {left:.25, right:.25, top:.25, bottom:.25, header:0, footer:0}; return ws; };
+  return {set, border, merge, done};
+}
+const TH = {style:'thin', color:{rgb:'000000'}}, GR = {style:'thin', color:{rgb:'999999'}};
+const ALL = {top:TH, bottom:TH, left:TH, right:TH};
+
+// Wedstrijdformulier-blad: 2 exemplaren onder elkaar, opmaak gelijk aan het originele Excel-formulier
+function xlsxFormulier(){
+  const X = xSheet(), val = v => num(v) ?? (v || ''), pH = sidePoints('home'), pA = sidePoints('away');
+  const rows = [];
+  const copy = o => {
+    // balk
+    for(let c = 0; c <= 12; c++) X.set(o, c, '', {fill:'000000', bd:{top:TH, bottom:TH}});
+    X.set(o, 1, M.org, {sz:14, b:true, fc:'FFFFFF', fill:'000000', bd:{top:TH, bottom:TH}});
+    X.set(o, 8, 'Wedstrijdformulier ' + M.season, {sz:14, b:true, fc:'FFFFFF', fill:'000000', h:'right', bd:{top:TH, bottom:TH}});
+    X.border(o, 12, {right:TH}); X.merge(o, 1, 7); X.merge(o, 8, 12);   // samenvoegen zodat de tekst niet wordt afgekapt
+    X.border(o, 0, {left:TH});
+    X.set(o+1, 1, 'Thuisspelend'); X.set(o+1, 8, 'Uitspelend');
+    X.set(o+2, 1, 'Team:'); X.set(o+2, 2, M.home.team, {b:true}); X.set(o+2, 8, 'Team:'); X.set(o+2, 9, M.away.team, {b:true});
+    ['Nr','Bondsnr','Naam','Tcar','Gcar','Ptn'].forEach((h, i) => { X.set(o+3, i, h, {sz:9, bd:ALL}); X.set(o+3, i+7, h, {sz:9, bd:ALL}); });
+    for(let i = 0; i < ROWS; i++){
+      const r = o + 4 + i, R = r + 1, h = M.home.rows[i], a = M.away.rows[i];
+      const mk = (g1, t1, g2, t2) => `IF(OR(${g1}${R}="",${g2}${R}=""),"",IF(AND(${g1}${R}-${t1}${R}>${g2}${R}-${t2}${R},${g1}${R}>=${t1}${R}),3,IF(AND(${g1}${R}-${t1}${R}=${g2}${R}-${t2}${R},${g1}${R}>=${t1}${R}),2,IF(${g1}${R}-${t1}${R}>${g2}${R}-${t2}${R},2,IF(${g1}${R}-${t1}${R}=${g2}${R}-${t2}${R},1,IF(${g1}${R}>=${t1}${R},1,0))))))`;
+      [[0, i+1, 'right'], [1, val(h.bondsnr)], [2, h.name], [3, val(h.tcar), 'center'], [4, val(h.gcar), 'center']].forEach(([c, v, al]) => X.set(r, c, v, {bd:ALL, h:al || 'left'}));
+      [[7, i+1, 'right'], [8, val(a.bondsnr)], [9, a.name], [10, val(a.tcar), 'center'], [11, val(a.gcar), 'center']].forEach(([c, v, al]) => X.set(r, c, v, {bd:ALL, h:al || 'left'}));
+      // punten als formule, zodat correcties in Excel direct doorrekenen
+      X.set(r, 5, pH[i] ?? '', {bd:ALL, h:'center'}, mk('E','D','L','K'));
+      X.set(r, 12, pA[i] ?? '', {bd:ALL, h:'center'}, mk('L','K','E','D'));
+    }
+    const w = o + 12;
+    X.set(w, 4, 'Wedstrijdpunten', {h:'right'}); X.set(w, 5, totals('home').total ?? '', {bd:ALL, h:'center', b:true}, `IF(COUNT(F${o+5}:F${o+12})=0,"",SUM(F${o+5}:F${o+12}))`);
+    X.set(w, 11, 'Wedstrijdpunten', {h:'right'}); X.set(w, 12, totals('away').total ?? '', {bd:ALL, h:'center', b:true}, `IF(COUNT(M${o+5}:M${o+12})=0,"",SUM(M${o+5}:M${o+12}))`);
+    const sig = S => 'Handtekening:…..........................................' + (S.captain ? '   (' + S.captain + ')' : '');
+    X.set(o+14, 1, sig(M.home), {sz:9}); X.set(o+14, 8, sig(M.away), {sz:9});
+    X.set(o+15, 1, 'Datum:'); X.set(o+15, 2, fmtDate(M.date), {h:'left'}); X.merge(o+15, 2, 4);
+    // kader rondom het exemplaar
+    for(let r = o+1; r <= o+15; r++){ X.border(r, 0, {left:TH}); X.border(r, 12, {right:TH}); }
+    for(let c = 0; c <= 12; c++) X.border(o+15, c, {bottom:TH});
+    rows.push(30, ...Array(14).fill(20.1), 30);
+  };
+  copy(0); rows.push(6, 60); copy(18);
+  return X.done([3, 9.14, 22.29, 5.71, 13, 4.71, 4.14, 3, 9.43, 22.29, 5.71, 13, 4.71], rows);
+}
+
+// Scoreblad-blad: 4 blokken per A4 (2 pagina's), per blok thuis- en uitspeler van één partij
+function xlsxScoreblad(){
+  const X = xSheet(), rows = [];
+  const blk = (i, r0, c0) => {
+    const h = M.home.rows[i], a = M.away.rows[i], pts = [sidePoints('home')[i], sidePoints('away')[i]];
+    const run = r => { let t = 0; return Array.from({length:25}, (_, k) => { const v = num(r.turns[k]); if(v != null){ t += v; return t; } return ''; }); };
+    const tot = [run(h), run(a)], nv = v => num(v) ?? (v ?? '');
+    const S = (r, c, v, o = {}) => X.set(r0 + r, c0 + c, v, {bd:ALL, h:'center', ...o});
+    S(0, 0, 'W.', {b:true, h:'left'}); S(0, 1, isoWeek(M.date) || '', {b:true, sz:12});
+    S(0, 2, `${M.home.team}  --  ${M.away.team}`, {b:true, sz:12}); for(let c = 3; c < 12; c++) S(0, c, ''); X.merge(r0, c0+2, c0+11);
+    S(1, 0, 'Aantal p.', {sz:11}); S(1, 1, ''); X.merge(r0+1, c0, c0+1);
+    S(1, 2, nv(h.tcar), {b:true, sz:12});
+    S(1, 3, 'datum:'); S(1, 4, ''); X.merge(r0+1, c0+3, c0+4);
+    S(1, 5, fmtDate(M.date), {b:true}); S(1, 6, ''); S(1, 7, ''); X.merge(r0+1, c0+5, c0+7);
+    S(1, 8, 'Aantal p.', {sz:11}); S(1, 9, ''); X.merge(r0+1, c0+8, c0+9);
+    S(1, 10, nv(a.tcar), {b:true, sz:12}); S(1, 11, ''); X.merge(r0+1, c0+10, c0+11);
+    [[0, h], [6, a]].forEach(([c, r]) => {
+      S(2, c, 'nr.', {sz:8}); S(2, c+1, 'Naam', {sz:8}); for(let k = 2; k < 6; k++) S(2, c+k, ''); X.merge(r0+2, c0+c+1, c0+c+5);
+      S(3, c, r.name ? i + 1 : '', {b:true}); S(3, c+1, r.name, {b:true, sz:12}); for(let k = 2; k < 6; k++) S(3, c+k, ''); X.merge(r0+3, c0+c+1, c0+c+5);
+    });
+    for(let c = 0; c < 12; c++) S(4, c, ['Beurt','Serie','Totaal'][c % 3], {sz:8});
+    for(let k = 0; k < 13; k++){
+      const bd = {left:TH, right:TH, top:GR, bottom:GR};
+      [[0, h, tot[0]], [6, a, tot[1]]].forEach(([c, r, t]) => {
+        S(5+k, c, k+1, {b:true, h:'left', sz:9, bd}); S(5+k, c+1, nv(r.turns[k]), {bd}); S(5+k, c+2, t[k], {bd});
+        if(k < 12){ S(5+k, c+3, k+14, {b:true, h:'left', sz:9, bd}); S(5+k, c+4, nv(r.turns[k+13]), {bd}); S(5+k, c+5, t[k+13], {bd}); }
+        else for(let q = 3; q < 6; q++) S(5+k, c+q, '', {fill:'D0D0D0', bd:{...ALL, top:{style:'medium', color:{rgb:'777777'}}}});
+      });
+    }
+    [[18, 'Totaal', nv(h.gcar), nv(a.gcar)], [19, 'Matchpunten', pts[0] ?? '', pts[1] ?? '']].forEach(([r, l, vh, va]) => {
+      [[0, vh], [6, va]].forEach(([c, v]) => {
+        S(r, c, l, {h:'left'}); S(r, c+1, ''); S(r, c+2, ''); X.merge(r0+r, c0+c, c0+c+2);
+        S(r, c+3, v, {b:true}); S(r, c+4, ''); S(r, c+5, ''); X.merge(r0+r, c0+c+3, c0+c+5);
+      });
+    });
+  };
+  for(let b = 0; b < 4; b++){
+    blk(b * 2, b * 22, 0); blk(b * 2 + 1, b * 22, 14);
+    rows.push(30, 30, 12.95, 21.95, 12.95, ...Array(13).fill(24.95), 24.95, 24.95, 12, 12);
+  }
+  return X.done([3.71,5.57,7.14,3.71,7.14,5.57,3.71,5.57,7.14,3.71,7.14,5.57,2.43,2.43,3.71,5.57,7.14,3.71,7.14,5.57,3.71,5.57,7.14,3.71,7.14,5.57], rows);
+}
+
+// Afdrukinstellingen (A4 staand, 1 pagina breed, paginaeinde na 4 partijen) in de sheet-XML zetten; SheetJS schrijft die zelf niet
+async function xlsxPrintSetup(buf, sheets){
+  if(!window.JSZip) return buf;
+  const zip = await JSZip.loadAsync(buf);
+  for(const [i, o] of sheets.entries()){
+    const f = `xl/worksheets/sheet${i + 1}.xml`; let x = await zip.file(f).async('string');
+    const pr = '<pageSetUpPr fitToPage="1"/>';
+    if(/<sheetPr[^>]*\/>/.test(x)) x = x.replace(/<sheetPr([^>]*)\/>/, `<sheetPr$1>${pr}</sheetPr>`);
+    else if(x.includes('</sheetPr>')) x = x.replace('</sheetPr>', pr + '</sheetPr>');
+    else x = x.replace(/(<worksheet[^>]*>)/, `$1<sheetPr>${pr}</sheetPr>`);
+    const breaks = o.breaks ? `<rowBreaks count="${o.breaks.length}" manualBreakCount="${o.breaks.length}">${o.breaks.map(r => `<brk id="${r}" max="16383" man="1"/>`).join('')}</rowBreaks>` : '';
+    x = x.replace(/(<pageMargins[^>]*\/>)/, `<printOptions horizontalCentered="1"/>$1<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="${o.tall}"/>${breaks}`);
+    zip.file(f, x);
+  }
+  return zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+async function exportXLSX(){
+  if(!window.XLSX) return toast('Excel-bibliotheek niet geladen (geen internet?)');
+  const val = v => num(v) ?? (v || '');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, xlsxFormulier(), 'Formulier');
+  XLSX.utils.book_append_sheet(wb, xlsxScoreblad(), 'Scoreblad');
+  // Beurten: alle series per partij als platte lijst (handig voor statistiek)
+  const sb = [['Partij','Kant','Naam','Tcar','Gcar','Brt','HS', ...Array.from({length:30}, (_, i) => 'B' + (i+1))]];
+  for(let i = 0; i < ROWS; i++) for(const k of ['home','away']){
+    const r = M[k].rows[i]; if(!r.name) continue;
+    sb.push([i+1, k === 'home' ? 'Thuis' : 'Uit', r.name, val(r.tcar), val(r.gcar), val(r.brt), val(r.hs), ...r.turns.map(val)]);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sb), 'Beurten');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Teamnaam','Bondsnr','Naam','Temaken','Moy'], ...players.map(p => [p.team, p.bondsnr, p.name, p.tcar, p.moy])]), 'Spelers');
+  wb.Workbook = {Names:[{Name:'_xlnm.Print_Area', Sheet:0, Ref:"'Formulier'!$A$1:$M$34"}, {Name:'_xlnm.Print_Area', Sheet:1, Ref:"'Scoreblad'!$A$1:$Z$86"}]};
+  const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = await xlsxPrintSetup(buf, [{tall:1}, {tall:0, breaks:[44]}]);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob]));
+  a.download = `Wedstrijdformulier ${M.date} ${M.home.team || 'thuis'} - ${M.away.team || 'uit'}.xlsx`.replace(/[\\/:*?"<>|]/g, '');
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------------- Spelers-tab ---------------- */
+function renderPlayers(){
+  const tSel = $('#pTeam'), cur = tSel.value;
+  tSel.innerHTML = '<option value="">Alle teams</option>' + teams().map(t => `<option${t === cur ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  $('#pInfo').textContent = `${players.length} spelers in ${teams().length} teams · bron: ${playersMeta.source}` + (playersMeta.at ? ' · bijgewerkt ' + new Date(playersMeta.at).toLocaleString('nl-NL') : '');
+  const q = $('#pSearch').value.trim().toLowerCase(), team = tSel.value;
+  const list = players.map((p, i) => [p, i]).filter(([p]) => (!team || p.team === team) && (!q || p.name.toLowerCase().includes(q) || String(p.bondsnr).includes(q)));
+  $('#pTable').innerHTML = `<thead><tr><th>Team</th><th>Bondsnr</th><th>Naam</th><th>Te maken</th><th>Moy</th><th></th></tr></thead><tbody>` +
+    list.map(([p, i]) => `<tr data-i="${i}"><td><input data-k="team" value="${esc(p.team)}"></td><td><input data-k="bondsnr" value="${esc(p.bondsnr)}"></td>
+      <td><input data-k="name" value="${esc(p.name)}"></td><td><input data-k="tcar" value="${esc(p.tcar)}" inputmode="numeric"></td>
+      <td><input data-k="moy" value="${esc(p.moy)}"></td><td><button class="btn small" data-del>✕</button></td></tr>`).join('') + '</tbody>';
+  $('#pTable').querySelectorAll('tbody tr').forEach(tr => {
+    const p = players[+tr.dataset.i];
+    tr.querySelectorAll('input').forEach(inp => inp.onchange = () => {
+      const k = inp.dataset.k; p[k] = ['tcar','moy'].includes(k) ? num(inp.value) : inp.value.trim();
+      savePlayers({source:'Handmatig bewerkt', at:new Date().toISOString()}); afterPlayersChanged(true);
+    });
+    tr.querySelector('[data-del]').onclick = () => { if(!confirm(`${p.name} verwijderen?`)) return;
+      players.splice(+tr.dataset.i, 1); savePlayers({source:'Handmatig bewerkt', at:new Date().toISOString()}); afterPlayersChanged(); };
+  });
+}
+function afterPlayersChanged(skipTable){ if(!skipTable) renderPlayers(); renderSide('home'); renderSide('away'); recalc(); }
+
+/* ---------------- Archief ---------------- */
+const archive = () => store('wf.archive') || [];
+function renderArchive(){
+  const list = archive().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  $('#aTable').innerHTML = `<thead><tr><th>Datum</th><th>Thuis</th><th>Uit</th><th>Uitslag</th><th></th></tr></thead><tbody>` +
+    (list.length ? list.map(m => { const cur = M; M = m; const s = `${totals('home').total ?? '-'} – ${totals('away').total ?? '-'}`; M = cur;
+      return `<tr><td>${fmtDate(m.date)}</td><td>${esc(m.home.team)}</td><td>${esc(m.away.team)}</td><td>${s}</td>
+      <td style="white-space:nowrap"><button class="btn small" data-open="${m.id}">Openen</button> <button class="btn small" data-del="${m.id}">✕</button></td></tr>`; }).join('')
+      : '<tr><td colspan="5" class="hint">Nog geen opgeslagen wedstrijden.</td></tr>') + '</tbody>';
+  $('#aTable').querySelectorAll('[data-open]').forEach(b => b.onclick = () => { M = structuredClone(archive().find(m => m.id === b.dataset.open)); persist(); loadAll(); show('form'); });
+  $('#aTable').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if(!confirm('Wedstrijd uit archief verwijderen?')) return;
+    store('wf.archive', archive().filter(m => m.id !== b.dataset.del)); renderArchive(); });
+}
+function saveToArchive(){
+  const list = archive().filter(m => m.id !== M.id); list.push(structuredClone(M)); store('wf.archive', list);
+  toast('Opgeslagen in archief');
+}
+function download(name, text, type){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+/* ---------------- Navigatie & init ---------------- */
+function show(v){
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.querySelectorAll('section.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  if(v === 'form') document.querySelectorAll('canvas[data-sig]').forEach(c => c._resize && c._resize());
+  if(v === 'score') renderScore();
+  if(v === 'players') renderPlayers();
+  if(v === 'archive') renderArchive();
+}
+function loadAll(){ bindHeader(); renderSide('home'); renderSide('away'); recalc(); }
+
+$('#tabs').onclick = e => { if(e.target.dataset.v) show(e.target.dataset.v); };
+$('#bNew').onclick = () => { if(!confirm('Nieuw leeg formulier starten? (Sla het huidige eerst op als je het wilt bewaren.)')) return; M = newMatch(); persist(); loadAll(); show('form'); };
+$('#bSave').onclick = saveToArchive;
+$('#bPrintMenu').onclick = e => { e.stopPropagation(); $('#mPrint').classList.toggle('open'); };
+document.addEventListener('click', () => $('#mPrint').classList.remove('open'));
+$('#mPrint .pop').onclick = e => {
+  const a = e.target.closest('button')?.dataset.a; if(!a) return;
+  $('#mPrint').classList.remove('open');
+  if(a === 'print2') doPrint(pagesForm(false));
+  if(a === 'print2p') doPrint(pagesForm(true));
+  if(a === 'printSb') doPrint(pagesScore());
+  if(a === 'pdf') doPDF();
+  if(a === 'xlsx') exportXLSX();
+};
+$('#pRefresh').onclick = () => checkOnline(true);
+$('#pSearch').oninput = renderPlayers; $('#pTeam').onchange = renderPlayers;
+$('#pAdd').onclick = () => { players.unshift({team:$('#pTeam').value, bondsnr:'', name:'Nieuwe speler', tcar:null, moy:null}); savePlayers(); $('#pSearch').value = ''; renderPlayers(); };
+$('#pReset').onclick = () => { if(!confirm('Spelerslijst terugzetten naar de ingebouwde momentopname?')) return;
+  players = builtinPlayers(); savePlayers({source:'Ingebouwde momentopname', at:null, version:BUILTIN_VERSION}); afterPlayersChanged(); };
+$('#pExport').onclick = () => { if(!window.XLSX) return toast('Excel-bibliotheek niet geladen');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Teamnaam','Bondsnr','Naam','Temaken','Moy'], ...players.map(p => [p.team, p.bondsnr, p.name, p.tcar, p.moy])]), 'tblMoyenne');
+  XLSX.writeFile(wb, 'Spelers.xlsx'); };
+$('#pFile').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return; e.target.value = '';
+  if(!window.XLSX) return toast('Excel-bibliotheek niet geladen');
+  try{
+    const wb = XLSX.read(await f.arrayBuffer(), {type:'array'});
+    const list = workbookToPlayers(wb); if(!list) throw new Error('kolommen Naam en Temaken niet gevonden');
+    players = list; savePlayers({source:'Bestand: ' + f.name, at:new Date().toISOString(), version:BUILTIN_VERSION}); afterPlayersChanged(); toast(list.length + ' spelers geïmporteerd');
+  }catch(err){ toast('Import mislukt: ' + err.message); }
+};
+$('#aExport').onclick = () => download('wedstrijden-archief.json', JSON.stringify(archive(), null, 1), 'application/json');
+$('#aFile').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return; e.target.value = '';
+  try{ const inc = JSON.parse(await f.text()); const byId = Object.fromEntries(archive().map(m => [m.id, m]));
+    inc.forEach(m => byId[m.id] = m); store('wf.archive', Object.values(byId)); renderArchive(); toast(inc.length + ' wedstrijden geïmporteerd'); }
+  catch(err){ toast('Import mislukt: ' + err.message); }
+};
+window.addEventListener('afterprint', () => $('#printRoot').innerHTML = '');
+window.addEventListener('resize', () => document.querySelectorAll('canvas[data-sig]').forEach(c => c._resize && c._resize()));
+
+loadAll();
+checkOnline(false);
+setInterval(() => checkOnline(false), 60 * 60 * 1000);   // tablet die de hele dag open staat
+</script>
+</body>
+</html>

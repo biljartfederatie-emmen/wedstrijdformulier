@@ -1,0 +1,5 @@
+# Niet online zetten: origineel Excel-bestand en lokale exports
+Wedstrijdformulier.xlsx
+Spelers_biljartpoint.xlsx
+*.pdf
+__pycache__/
