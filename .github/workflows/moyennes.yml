@@ -1,0 +1,56 @@
+# Elke nacht de moyennes van biljartpoint.nl controleren en de app publiceren op GitHub Pages.
+# Is er iets veranderd, dan wordt spelers.json vernieuwd en zien gebruikers in de app de knop "Bijwerken".
+name: Moyennes bijwerken en publiceren
+
+on:
+  schedule:
+    - cron: '0 4 * * *'        # dagelijks 04:00 UTC (06:00 zomertijd / 05:00 wintertijd)
+  workflow_dispatch:           # handmatig starten via tabblad Actions -> Run workflow
+  push:
+    branches: [main]
+
+permissions:
+  contents: write              # spelers.json terugschrijven
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  bijwerken:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Moyennes ophalen van biljartpoint.nl
+        run: python spelers_ophalen.py --alleen-json
+
+      - name: Wijzigingen opslaan
+        run: |
+          if git diff --quiet -- spelers.json; then
+            echo "Geen gewijzigde moyennes."
+          else
+            git config user.name "moyenne-check"
+            git config user.email "moyenne-check@users.noreply.github.com"
+            git add spelers.json
+            git commit -m "Moyennes bijgewerkt $(date +%Y-%m-%d)"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
