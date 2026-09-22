@@ -7,17 +7,26 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>try{ const t = JSON.parse(localStorage.getItem('wf.theme')); if(t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; }catch(e){}</script>
 <style>
 :root{
   --bg:#f4f5f7; --panel:#fff; --ink:#1b1f24; --muted:#5f6b7a; --line:#d5dae1;
   --accent:#0b6e4f; --accent-ink:#fff; --home:#e8f3ee; --away:#eaf0f8; --warn:#b54708; --hit:#fff4c2;
+  color-scheme:light dark;
 }
+/* Thema: automatisch (volgt het toestel), of vast licht / donker via de knop in de kopbalk */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#15181c; --panel:#1f2328; --ink:#e7eaee; --muted:#9aa4b1; --line:#353b43;
     --accent:#3fb489; --accent-ink:#0d1a14; --home:#1d2c26; --away:#1d2532; --warn:#f0a35e; --hit:#4a4118;
   }
 }
+:root[data-theme="dark"]{
+    --bg:#15181c; --panel:#1f2328; --ink:#e7eaee; --muted:#9aa4b1; --line:#353b43;
+    --accent:#3fb489; --accent-ink:#0d1a14; --home:#1d2c26; --away:#1d2532; --warn:#f0a35e; --hit:#4a4118;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button,input,select{font:inherit;color:inherit}
@@ -233,6 +242,7 @@ nav.tabs .ti, nav.tabs .short, .actions .ico{display:none}
     <button data-v="help"><span class="ti">❓</span><span>Uitleg</span></button>
   </nav>
   <div class="actions">
+    <button class="btn" id="bTheme" title="Weergave: automatisch" aria-label="Licht of donker"><span id="themeIco">🌓</span></button>
     <button class="btn" id="bNew" title="Nieuw leeg formulier" aria-label="Nieuw"><span class="ico">＋</span><span class="lbl">Nieuw</span></button>
     <button class="btn" id="bSave" title="Opslaan in archief" aria-label="Opslaan"><span class="ico">💾</span><span class="lbl">Opslaan</span></button>
     <div class="menu" id="mPrint">
@@ -349,6 +359,7 @@ nav.tabs .ti, nav.tabs .short, .actions .ico{display:none}
     <h3>Handig om te weten</h3>
     <ul>
       <li><b>Als app op je beginscherm:</b> iPhone/iPad: deelknop → <i>Zet op beginscherm</i>. Android: menu (⋮) → <i>Toevoegen aan startscherm</i>.</li>
+      <li><b>Licht of donker?</b> Tik bovenaan op 🌓: automatisch (zoals je toestel) → ☀️ licht → 🌙 donker.</li>
       <li><b>Alles wordt op je eigen toestel bewaard</b>, ook als je de app sluit. Een ander toestel ziet jouw formulieren niet.
         Wissel je van toestel: <i>Archief → Archief exporteren</i> en op het andere toestel importeren.</li>
       <li><b>Valt er bij afdrukken iets weg?</b> Zet in het afdrukvenster <i>Marges</i> op <i>Standaard</i> en <i>Schaal</i> op 100% of <i>Passend</i>.</li>
@@ -1146,6 +1157,19 @@ document.addEventListener('keydown', e => {
   if(e.key === 'ArrowRight') tourGo(tourIdx + 1);
   if(e.key === 'ArrowLeft') tourGo(tourIdx - 1);
 });
+
+/* ---------------- Licht / donker ---------------- */
+const THEMES = {auto:['🌓', 'automatisch (volgt je toestel)'], light:['☀️', 'licht'], dark:['🌙', 'donker']};
+function applyTheme(t){
+  if(t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  $('#themeIco').textContent = THEMES[t][0]; $('#bTheme').title = 'Weergave: ' + THEMES[t][1];
+}
+let theme = store('wf.theme') || 'auto';
+applyTheme(theme);
+$('#bTheme').onclick = () => {
+  theme = {auto:'light', light:'dark', dark:'auto'}[theme];
+  store('wf.theme', theme); applyTheme(theme); toast('Weergave: ' + THEMES[theme][1]);
+};
 
 loadAll();
 checkOnline(false);
