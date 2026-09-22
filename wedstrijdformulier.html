@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wedstrijdformulier Biljart</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -173,6 +173,42 @@ table.list input:focus{border-color:var(--line);background:var(--panel)}
 .sbk tr.ft td.v{text-align:center;font-weight:700}
 .sbk .thick{border-right:1px solid #000}
 
+
+/* pictogrammen alleen op de telefoon */
+nav.tabs .ti, nav.tabs .short, .actions .ico{display:none}
+/* ===== Telefoon: slanke kopbalk, tabbladen als vaste balk onderaan ===== */
+@media (max-width:600px){
+  header.bar{flex-wrap:nowrap;padding:8px 12px;gap:6px}
+  header.bar h1{font-size:16px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .actions{flex-wrap:nowrap;gap:6px}
+  .actions .lbl{display:none}
+  .actions .ico{display:inline}
+  .actions .btn{padding:6px 10px;font-size:16px;line-height:1.2}
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+    background:var(--panel);border-top:1px solid var(--line);padding:4px 2px calc(4px + env(safe-area-inset-bottom))}
+  nav.tabs button{border:0;border-radius:8px;padding:5px 0;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:var(--muted)}
+  nav.tabs button .ti{display:block;font-size:19px;line-height:1.2;filter:grayscale(1);opacity:.7}
+  nav.tabs button.on{background:transparent;color:var(--accent);font-weight:700}
+  nav.tabs button.on .ti{filter:none;opacity:1}
+  nav.tabs .long{display:none}
+  nav.tabs .short{display:inline}
+  main{padding:12px 12px calc(80px + env(safe-area-inset-bottom))}
+  #toast{bottom:calc(76px + env(safe-area-inset-bottom))}
+  .menu .pop{position:fixed;left:12px;right:12px;top:56px;min-width:0}
+  .menu .pop button{padding:12px 10px}
+  /* welkomstmelding compact */
+  .intro{gap:8px;padding:10px}
+  .intro span{flex-basis:100%;font-size:14px}
+  .intro .btn{padding:6px 12px}
+  /* wedstrijdgegevens in twee kolommen, organisatie over de volle breedte */
+  #v-form > .card.grid{grid-template-columns:1fr 1fr;gap:8px}
+  #v-form > .card.grid > label:first-child{grid-column:1 / -1}
+  #v-form > .card.grid > label{min-width:0}
+  label.f input, label.f select{padding:6px;font-size:15px;min-width:0;width:100%}
+  /* rondleiding: tekstvak boven de tabbalk */
+  .tour-tip{bottom:calc(76px + env(safe-area-inset-bottom))!important}
+}
+
 @media print{
   @page{size:A4 portrait;margin:8mm}
   body{background:#fff}
@@ -190,17 +226,17 @@ table.list input:focus{border-color:var(--line);background:var(--panel)}
 <header class="bar">
   <h1>🎱 Wedstrijdformulier</h1>
   <nav class="tabs" id="tabs">
-    <button data-v="form" class="on">Formulier</button>
-    <button data-v="score">Live scoreblad</button>
-    <button data-v="players">Spelers</button>
-    <button data-v="archive">Archief</button>
-    <button data-v="help">Uitleg</button>
+    <button data-v="form" class="on"><span class="ti">📝</span><span>Formulier</span></button>
+    <button data-v="score"><span class="ti">🎯</span><span class="long">Live scoreblad</span><span class="short">Scoreblad</span></button>
+    <button data-v="players"><span class="ti">👥</span><span>Spelers</span></button>
+    <button data-v="archive"><span class="ti">🗂️</span><span>Archief</span></button>
+    <button data-v="help"><span class="ti">❓</span><span>Uitleg</span></button>
   </nav>
   <div class="actions">
-    <button class="btn" id="bNew" title="Leeg formulier">Nieuw</button>
-    <button class="btn" id="bSave" title="Opslaan in archief">Opslaan</button>
+    <button class="btn" id="bNew" title="Nieuw leeg formulier" aria-label="Nieuw"><span class="ico">＋</span><span class="lbl">Nieuw</span></button>
+    <button class="btn" id="bSave" title="Opslaan in archief" aria-label="Opslaan"><span class="ico">💾</span><span class="lbl">Opslaan</span></button>
     <div class="menu" id="mPrint">
-      <button class="btn primary" id="bPrintMenu">Afdrukken / export ▾</button>
+      <button class="btn primary" id="bPrintMenu" title="Afdrukken / export" aria-label="Afdrukken / export"><span class="ico">🖨️</span><span class="lbl">Afdrukken / export</span> ▾</button>
       <div class="pop">
         <button data-a="print2">🖨️ Afdrukken – 2 exemplaren op 1 A4</button>
         <button data-a="print2p">🖨️ Afdrukken – 2 exemplaren, elk op eigen A4</button>
@@ -214,7 +250,7 @@ table.list input:focus{border-color:var(--line);background:var(--panel)}
 
 <main>
 <div class="upd" id="upd" hidden></div>
-<div class="intro" id="intro" hidden><span>👋 <b>Nieuw hier?</b> Volg de korte rondleiding (1 minuut) of lees de uitleg.</span><button class="btn primary" id="introTour">▶ Rondleiding</button><button class="btn" id="introGo">Uitleg lezen</button><button class="btn" id="introX">Sluiten</button></div>
+<div class="intro" id="intro" hidden><span>👋 <b>Nieuw hier?</b> Volg de korte rondleiding (1 minuut) of lees de uitleg.</span><button class="btn primary" id="introTour">▶ Rondleiding</button><button class="btn" id="introGo">Uitleg lezen</button><button class="btn" id="introX" title="Sluiten" aria-label="Sluiten" style="margin-left:auto">✕</button></div>
 <!-- ================= FORMULIER ================= -->
 <section class="view on" id="v-form">
   <div class="card grid">
@@ -999,7 +1035,7 @@ function show(v){
 }
 function loadAll(){ bindHeader(); renderSide('home'); renderSide('away'); recalc(); }
 
-$('#tabs').onclick = e => { if(e.target.dataset.v) show(e.target.dataset.v); };
+$('#tabs').onclick = e => { const b = e.target.closest('button[data-v]'); if(b) show(b.dataset.v); };
 $('#bNew').onclick = () => { if(!confirm('Nieuw leeg formulier starten? (Sla het huidige eerst op als je het wilt bewaren.)')) return; M = newMatch(); persist(); loadAll(); show('form'); };
 $('#bSave').onclick = saveToArchive;
 $('#bPrintMenu').onclick = e => { e.stopPropagation(); $('#mPrint').classList.toggle('open'); };
@@ -1086,7 +1122,7 @@ function tourGo(i){
     <button class="btn small" data-t="stop">Stoppen</button>${i ? '<button class="btn small" data-t="prev">Vorige</button>' : ''}
     <button class="btn small primary" data-t="next">${i === TOUR.length - 1 ? 'Klaar' : i ? 'Volgende' : 'Start'}</button></div>`;
   const el = step.el && document.querySelector(step.el);
-  if(el && el.offsetWidth){
+  if(el && el.offsetWidth && !el.closest('header.bar')){
     // telefoon: net onder de vaste kopbalk (tekstvak staat onderaan); groter scherm: in het midden
     const hdr = document.querySelector('header.bar').offsetHeight, r = el.getBoundingClientRect();
     const y = innerWidth <= 600 ? r.top + scrollY - hdr - 16 : r.top + scrollY - (innerHeight - r.height) / 2;
