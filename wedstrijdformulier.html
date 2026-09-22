@@ -511,7 +511,8 @@ const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '
 // Alle zoekwoorden moeten voorkomen (volgorde maakt niet uit, accenten worden genegeerd).
 // Is er een team gekozen, dan alleen spelers van dát team (bijv. De Schalm 1, niet De Schalm 2-4),
 // tenzij 'wide' aan staat (invaller uit een ander team zoeken): dan eerst het eigen team, daarna de rest.
-// Zonder team wordt in alle spelers gezocht. Eerst namen waarvan een woord met de zoekterm begint.
+// Zonder team wordt in alle spelers gezocht. Eerst namen waarvan een woord met de zoekterm begint,
+// dan vaste spelers vóór reserves, en daarbinnen het hoogste moyenne bovenaan.
 function searchPlayers(q, team, wide = false){
   const words = norm(q).split(/\s+/).filter(Boolean), nq = norm(q).trim();
   const seen = new Set(), res = [];
@@ -525,7 +526,8 @@ function searchPlayers(q, team, wide = false){
     seen.add(key);
     res.push({p, own, teams:[p.team], starts:!!nq && (norm(p.name).startsWith(nq) || norm(p.name).split(' ').some(x => x.startsWith(nq)))});
   }
-  res.sort((a, b) => (b.own - a.own) || (b.starts - a.starts) || (a.own ? 0 : a.p.name.localeCompare(b.p.name, 'nl')));
+  res.sort((a, b) => (b.own - a.own) || (b.starts - a.starts) || (a.own && b.own ? !!a.p.reserve - !!b.p.reserve : 0)
+    || ((num(b.p.moy) ?? 0) - (num(a.p.moy) ?? 0)) || a.p.name.localeCompare(b.p.name, 'nl'));
   return res.slice(0, 40);
 }
 function highlight(text, q){
