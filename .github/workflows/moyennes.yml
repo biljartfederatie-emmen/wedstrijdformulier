@@ -19,11 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  bijwerken:
+  bouwen:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,14 +40,28 @@ jobs:
             git config user.email "moyenne-check@users.noreply.github.com"
             git add spelers.json
             git commit -m "Moyennes bijgewerkt $(date +%Y-%m-%d)"
+            git pull --rebase
             git push
           fi
 
+      - name: Site klaarzetten
+        run: |
+          mkdir -p _site
+          cp index.html wedstrijdformulier.html spelers.json _site/
+          ls -la _site
+
       - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: _site
 
+  publiceren:
+    needs: bouwen
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4
